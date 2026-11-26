@@ -451,7 +451,7 @@ async function processSingleUpsert(Dinz, message, msg, store) {
     if (m.isGroup && !isOwnerOrBot) {
         try {
             const sistemSewa = botCtx.getSection('sistemsewa', Dinz);
-            const isSewaEnabled = Boolean(sistemSewa && sistemSewa.enabled === true);
+            const isSewaEnabled = Boolean(sistemSewa && sistemSewa.enabled === true && sistemSewa.explicit === true);
 
             if (isSewaEnabled) {
                 const sewagrup = botCtx.getSection('sewagrup', Dinz);

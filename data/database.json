@@ -7219,7 +7219,8 @@
     "sewagrup": [],
     "sewa_notified": {},
     "sistemsewa": {
-      "enabled": true
+      "enabled": false,
+      "explicit": false
     },
     "afk": {},
     "claim": {},

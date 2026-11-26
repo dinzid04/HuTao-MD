@@ -20,9 +20,9 @@ const lastExecutedAuto = {};
 function isSistemSewaEnabled(sock) {
     try {
         const cfg = botCtx.getSection('sistemsewa', sock);
-        return cfg?.enabled === true;
+        return Boolean(cfg && cfg.enabled === true && cfg.explicit === true);
     } catch (_) {
-        return true;
+        return false;
     }
 }
 

@@ -125,8 +125,7 @@ function normalizeBotData(raw, isJadibot = false) {
     if (
         merged.store.sistemsewa &&
         merged.store.sistemsewa.enabled === true &&
-        merged.store.sistemsewa.explicit !== true &&
-        (!Array.isArray(merged.store.sewagrup) || merged.store.sewagrup.length === 0)
+        merged.store.sistemsewa.explicit !== true
     ) {
         merged.store.sistemsewa = { enabled: false, explicit: false };
     }
