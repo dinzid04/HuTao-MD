@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tower Stack</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none}
+:root{--bg:#181825;--panel:#232334;--line:#36364f;--ink:#fafaf9;--muted:#a8a29e;--accent:#f59e0b}
+html,body{background:transparent;color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;overflow-x:hidden;touch-action:manipulation}
+button{font:inherit;cursor:pointer;border:0;background:none;color:inherit}
+button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+main{width:100%;max-width:380px;margin:0 auto;padding:12px}
+.shell{background:var(--bg);border:1px solid var(--line);border-radius:14px;padding:14px}
+header{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px}
+h1{font-size:19px;font-weight:800}
+.hud{display:flex;gap:8px}
+.stat{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:5px 10px;text-align:center;min-width:62px}
+.stat span{display:block;font-size:10px;color:var(--muted);text-transform:uppercase}
+.stat strong{font-size:15px;font-variant-numeric:tabular-nums}
+.stage{position:relative;border-radius:11px;overflow:hidden;border:1px solid var(--line);background:#11111b;cursor:pointer;touch-action:manipulation}
+canvas{display:block;width:100%;height:auto;aspect-ratio:3/4}
+.overlay{position:absolute;inset:0;background:rgba(17,17,27,.84);display:none;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;padding:18px}
+.overlay.show{display:flex}
+.overlay h2{font-size:21px;font-weight:800}
+.overlay p{font-size:13px;color:var(--muted)}
+.btn-primary{min-height:46px;padding:0 22px;border-radius:10px;background:var(--accent);color:#1c1917;font-weight:800;font-size:14px}
+.drop-bar{margin-top:10px;display:flex;gap:8px;align-items:center}
+.btn-drop{flex:1;min-height:50px;border-radius:11px;background:var(--accent);color:#1c1917;font-size:15px;font-weight:800}
+.btn-drop:active{transform:scale(.98)}
+.streak{min-width:94px;text-align:center;font-size:12px;font-weight:700;color:var(--muted);background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 8px}
+</style>
+</head>
+<body>
+<main>
+  <section class="shell" aria-label="Permainan Tower Stack">
+    <header>
+      <h1>Tower Stack</h1>
+      <div class="hud">
+        <div class="stat"><span>Tinggi</span><strong id="score">0</strong></div>
+        <div class="stat"><span>Terbaik</span><strong id="best">0</strong></div>
+      </div>
+    </header>
+    <div class="stage" id="stage">
+      <canvas id="cv" width="300" height="400"></canvas>
+      <div class="overlay show" id="overlay" role="dialog" aria-live="polite">
+        <h2 id="ovTitle">Tower Stack</h2>
+        <p id="ovMsg">Ketuk tepat saat balok sejajar untuk membangun menara setinggi mungkin.</p>
+        <button id="playBtn" class="btn-primary" type="button">Mulai Bangun</button>
+      </div>
+    </div>
+    <div class="drop-bar">
+      <button id="dropBtn" class="btn-drop" type="button">Jatuhkan Balok</button>
+      <div id="streak" class="streak">Combo: 0</div>
+    </div>
+  </section>
+</main>
+<script>
+(() => {
+  const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
+  const stage = document.getElementById('stage');
+  const scoreEl = document.getElementById('score'), bestEl = document.getElementById('best'), streakEl = document.getElementById('streak');
+  const overlay = document.getElementById('overlay'), ovTitle = document.getElementById('ovTitle'), ovMsg = document.getElementById('ovMsg');
+  const playBtn = document.getElementById('playBtn'), dropBtn = document.getElementById('dropBtn');
+
+  const W = cv.width, H = cv.height, BH = 22;
+  const PALETTE = ['#c2410c', '#ea580c', '#d97706', '#eab308', '#ca8a04', '#b45309', '#9a3412', '#f59e0b'];
+  let stack = [], moving = null, debris = [], score = 0, best = 0, combo = 0, camY = 0, running = false, rafId = 0;
+  let toast = { text: '', alpha: 0 };
+  try { best = parseInt(localStorage.getItem('shiki_stack_best') || '0', 10) || 0; } catch {}
+  bestEl.textContent = String(best);
+
+  function colorFor(idx) { return PALETTE[idx % PALETTE.length]; }
+
+  function spawnMoving() {
+    const top = stack[stack.length - 1];
+    const spd = Math.min(5.2, 2.2 + score * 0.08);
+    const fromLeft = stack.length % 2 === 1;
+    moving = {
+      x: fromLeft ? 10 : W - top.w - 10,
+      y: top.y - BH,
+      w: top.w,
+      dir: fromLeft ? 1 : -1,
+      spd,
+      col: colorFor(stack.length)
+    };
+  }
+
+  function start() {
+    cancelAnimationFrame(rafId);
+    stack = [{ x: 75, y: H - 40, w: 150, col: colorFor(0) }];
+    debris = [];
+    score = 0; combo = 0; camY = 0; running = true;
+    scoreEl.textContent = '0';
+    streakEl.textContent = 'Combo: 0';
+    overlay.classList.remove('show');
+    spawnMoving();
+    loop();
+  }
+
+  function place() {
+    if (!running || !moving) return;
+    const prev = stack[stack.length - 1];
+    const diff = moving.x - prev.x;
+    const absDiff = Math.abs(diff);
+
+    if (absDiff >= moving.w) {
+      debris.push({ x: moving.x, y: moving.y, w: moving.w, vy: 1, col: moving.col });
+      running = false;
+      moving = null;
+      ovTitle.textContent = 'Meleset!';
+      ovMsg.textContent = 'Menara kamu mencapai ' + score + ' lantai (Terbaik ' + best + ').';
+      playBtn.textContent = 'Coba Lagi';
+      overlay.classList.add('show');
+      draw();
+      return;
+    }
+
+    let placedX = moving.x, placedW = moving.w;
+    if (absDiff <= 4) {
+      placedX = prev.x;
+      placedW = prev.w;
+      combo++;
+      toast = { text: combo >= 2 ? 'SEMPURNA x' + combo : 'SEMPURNA!', alpha: 1 };
+    } else {
+      combo = 0;
+      const left = Math.max(prev.x, moving.x);
+      const right = Math.min(prev.x + prev.w, moving.x + moving.w);
+      placedX = left;
+      placedW = right - left;
+      const cutW = moving.w - placedW;
+      const cutX = diff > 0 ? right : moving.x;
+      debris.push({ x: cutX, y: moving.y, w: cutW, vy: 0.8, col: moving.col });
+    }
+
+    stack.push({ x: placedX, y: moving.y, w: placedW, col: moving.col });
+    score++;
+    scoreEl.textContent = String(score);
+    streakEl.textContent = 'Combo: ' + combo;
+    if (score > best) {
+      best = score;
+      bestEl.textContent = String(best);
+      try { localStorage.setItem('shiki_stack_best', String(best)); } catch {}
+    }
+    spawnMoving();
+  }
+
+  function draw() {
+    ctx.fillStyle = '#11111b';
+    ctx.fillRect(0, 0, W, H);
+
+    const targetCam = Math.max(0, (stack.length - 9) * BH);
+    camY += (targetCam - camY) * 0.14;
+
+    ctx.save();
+    ctx.translate(0, camY);
+    for (const b of stack) {
+      ctx.fillStyle = b.col;
+      ctx.fillRect(b.x, b.y, b.w, BH - 1);
+      ctx.fillStyle = 'rgba(255,255,255,0.18)';
+      ctx.fillRect(b.x, b.y, b.w, 3);
+    }
+    if (moving) {
+      ctx.fillStyle = moving.col;
+      ctx.fillRect(moving.x, moving.y, moving.w, BH - 1);
+      ctx.fillStyle = 'rgba(255,255,255,0.32)';
+      ctx.fillRect(moving.x, moving.y, moving.w, 3);
+    }
+    for (const d of debris) {
+      ctx.fillStyle = d.col;
+      ctx.globalAlpha = 0.7;
+      ctx.fillRect(d.x, d.y, d.w, BH - 1);
+      ctx.globalAlpha = 1;
+    }
+    ctx.restore();
+
+    if (toast.alpha > 0.02) {
+      ctx.globalAlpha = toast.alpha;
+      ctx.fillStyle = '#fde68a';
+      ctx.font = 'bold 16px -apple-system,sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(toast.text, W / 2, 42);
+      ctx.globalAlpha = 1;
+      toast.alpha *= 0.94;
+    }
+  }
+
+  function loop() {
+    if (moving) {
+      moving.x += moving.dir * moving.spd;
+      if (moving.x <= 6) { moving.x = 6; moving.dir = 1; }
+      if (moving.x + moving.w >= W - 6) { moving.x = W - moving.w - 6; moving.dir = -1; }
+    }
+    debris.forEach(d => { d.vy += 0.35; d.y += d.vy; });
+    debris = debris.filter(d => d.y - camY < H + 60);
+    draw();
+    if (running || debris.length) rafId = requestAnimationFrame(loop);
+  }
+
+  playBtn.addEventListener('click', e => { e.stopPropagation(); start(); });
+  dropBtn.addEventListener('click', () => { if (!running) start(); else place(); });
+  stage.addEventListener('pointerdown', () => { if (running) place(); });
+  window.addEventListener('keydown', e => {
+    if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); if (!running) start(); else place(); }
+  });
+
+  stack = [{ x: 75, y: H - 40, w: 150, col: colorFor(0) }];
+  draw();
+})();
+</script>
+</body>
+</html>

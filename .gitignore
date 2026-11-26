@@ -1,0 +1,12 @@
+node_modules/
+session/
+jadibot-session/
+tmp/
+bin/
+data/cookies.txt
+data/caller-session.db*
+data/jadibot-media/
+data/media-list/
+.env
+*.log
+.DS_Store

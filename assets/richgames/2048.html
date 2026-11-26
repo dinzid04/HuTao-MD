@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>2048 Classic</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none}
+:root{--bg:#1c1917;--board:#292524;--empty:#3a3430;--ink:#f5f5f4;--muted:#a8a29e;--accent:#d97706;--accent-hover:#b45309;--line:#44403c}
+html,body{background:transparent;color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;overflow-x:hidden;touch-action:manipulation}
+button{font:inherit;cursor:pointer;border:0;background:none;color:inherit}
+button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+main{width:100%;max-width:380px;margin:0 auto;padding:14px}
+.shell{background:var(--bg);border:1px solid var(--line);border-radius:14px;padding:16px}
+header{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px}
+h1{font-size:24px;font-weight:800;letter-spacing:-0.02em;color:var(--ink)}
+.scores{display:flex;gap:8px}
+.stat{background:var(--board);border:1px solid var(--line);border-radius:8px;padding:6px 10px;min-width:68px;text-align:center}
+.stat span{display:block;font-size:10px;text-transform:uppercase;letter-spacing:0.06em;color:var(--muted)}
+.stat strong{font-size:16px;font-variant-numeric:tabular-nums;color:var(--ink)}
+.bar{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:12px}
+.hint{font-size:12px;color:var(--muted)}
+.actions{display:flex;gap:6px}
+.btn{min-height:44px;padding:0 14px;border-radius:8px;font-size:13px;font-weight:600;background:var(--board);border:1px solid var(--line);color:var(--ink);transition:transform .1s ease,background .15s ease}
+.btn:active{transform:scale(.96)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn-primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn-primary:hover{background:var(--accent-hover)}
+.board-wrap{position:relative;background:var(--board);border-radius:10px;padding:8px;touch-action:none}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;aspect-ratio:1/1}
+.tile{display:flex;align-items:center;justify-content:center;border-radius:8px;font-weight:800;font-variant-numeric:tabular-nums;font-size:clamp(18px,6vw,26px);background:var(--empty);color:var(--ink);transition:transform .12s ease}
+.tile.pop{animation:pop .16s ease}
+@keyframes pop{0%{transform:scale(.75)}70%{transform:scale(1.06)}100%{transform:scale(1)}}
+.t-2{background:#e7e5e4;color:#1c1917}
+.t-4{background:#fde68a;color:#1c1917}
+.t-8{background:#fdba74;color:#1c1917}
+.t-16{background:#fb923c;color:#1c1917}
+.t-32{background:#f97316;color:#fff}
+.t-64{background:#ea580c;color:#fff}
+.t-128{background:#eab308;color:#1c1917;font-size:clamp(16px,5.2vw,22px)}
+.t-256{background:#ca8a04;color:#fff;font-size:clamp(16px,5.2vw,22px)}
+.t-512{background:#a16207;color:#fff;font-size:clamp(16px,5.2vw,22px)}
+.t-1024{background:#0d9488;color:#fff;font-size:clamp(14px,4.5vw,19px)}
+.t-2048{background:#0f766e;color:#fff;font-size:clamp(14px,4.5vw,19px)}
+.t-high{background:#be123c;color:#fff;font-size:clamp(13px,4vw,17px)}
+.overlay{position:absolute;inset:0;background:rgba(28,25,23,.88);border-radius:10px;display:none;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:16px;text-align:center}
+.overlay.show{display:flex}
+.overlay h2{font-size:22px;font-weight:800}
+.overlay p{font-size:13px;color:var(--muted)}
+.pad{margin-top:12px;display:grid;grid-template-columns:repeat(3,1fr);gap:8px;max-width:210px;margin-inline:auto}
+.pad button{min-height:46px;border-radius:10px;background:var(--board);border:1px solid var(--line);font-size:18px;font-weight:700;color:var(--ink)}
+.pad button:active{background:var(--accent);color:#fff}
+.pad .sp{visibility:hidden}
+@media(prefers-reduced-motion:reduce){.tile,.tile.pop{animation:none;transition:none}}
+</style>
+</head>
+<body>
+<main>
+  <section class="shell" aria-label="Permainan 2048">
+    <header>
+      <h1>2048</h1>
+      <div class="scores">
+        <div class="stat"><span>Skor</span><strong id="score">0</strong></div>
+        <div class="stat"><span>Terbaik</span><strong id="best">0</strong></div>
+      </div>
+    </header>
+    <div class="bar">
+      <p class="hint">Geser papan atau pakai tombol arah</p>
+      <div class="actions">
+        <button id="undoBtn" class="btn" type="button" disabled>Undo</button>
+        <button id="newBtn" class="btn btn-primary" type="button">Baru</button>
+      </div>
+    </div>
+    <div class="board-wrap" id="boardWrap">
+      <div class="grid" id="grid" role="grid" aria-label="Papan 4 kali 4"></div>
+      <div class="overlay" id="overlay" role="dialog" aria-live="polite">
+        <h2 id="ovTitle">Permainan Selesai</h2>
+        <p id="ovMsg">Tidak ada langkah tersisa.</p>
+        <div class="actions">
+          <button id="contBtn" class="btn" type="button" style="display:none">Lanjut</button>
+          <button id="retryBtn" class="btn btn-primary" type="button">Main Lagi</button>
+        </div>
+      </div>
+    </div>
+    <div class="pad" aria-label="Kontrol arah">
+      <span class="sp"></span>
+      <button type="button" data-dir="up" aria-label="Geser atas">&#9650;</button>
+      <span class="sp"></span>
+      <button type="button" data-dir="left" aria-label="Geser kiri">&#9664;</button>
+      <button type="button" data-dir="down" aria-label="Geser bawah">&#9660;</button>
+      <button type="button" data-dir="right" aria-label="Geser kanan">&#9654;</button>
+    </div>
+  </section>
+</main>
+<script>
+(() => {
+  const gridEl = document.getElementById('grid');
+  const scoreEl = document.getElementById('score');
+  const bestEl = document.getElementById('best');
+  const undoBtn = document.getElementById('undoBtn');
+  const newBtn = document.getElementById('newBtn');
+  const overlay = document.getElementById('overlay');
+  const ovTitle = document.getElementById('ovTitle');
+  const ovMsg = document.getElementById('ovMsg');
+  const contBtn = document.getElementById('contBtn');
+  const retryBtn = document.getElementById('retryBtn');
+  const wrap = document.getElementById('boardWrap');
+
+  let board = [], prevState = null, score = 0, best = 0, wonShown = false;
+  try { best = parseInt(localStorage.getItem('shiki_2048_best') || '0', 10) || 0; } catch {}
+
+  function saveBest() {
+    if (score > best) {
+      best = score;
+      try { localStorage.setItem('shiki_2048_best', String(best)); } catch {}
+    }
+    scoreEl.textContent = String(score);
+    bestEl.textContent = String(best);
+  }
+
+  function spawn(popSet) {
+    const empty = [];
+    for (let r = 0; r < 4; r++) for (let c = 0; c < 4; c++) if (!board[r][c]) empty.push([r, c]);
+    if (!empty.length) return;
+    const [r, c] = empty[Math.floor(Math.random() * empty.length)];
+    board[r][c] = Math.random() < 0.9 ? 2 : 4;
+    if (popSet) popSet.add(r * 4 + c);
+  }
+
+  function render(popSet = new Set()) {
+    gridEl.innerHTML = '';
+    for (let r = 0; r < 4; r++) {
+      for (let c = 0; c < 4; c++) {
+        const v = board[r][c];
+        const cell = document.createElement('div');
+        const cls = v ? (v <= 2048 ? 't-' + v : 't-high') : '';
+        cell.className = 'tile ' + cls + (popSet.has(r * 4 + c) ? ' pop' : '');
+        cell.textContent = v ? String(v) : '';
+        gridEl.appendChild(cell);
+      }
+    }
+    undoBtn.disabled = !prevState;
+    saveBest();
+  }
+
+  function slideLine(line) {
+    const nums = line.filter(v => v !== 0);
+    const out = [];
+    let gained = 0;
+    for (let i = 0; i < nums.length; i++) {
+      if (nums[i] === nums[i + 1]) {
+        const merged = nums[i] * 2;
+        out.push(merged);
+        gained += merged;
+        i++;
+      } else {
+        out.push(nums[i]);
+      }
+    }
+    while (out.length < 4) out.push(0);
+    return { out, gained };
+  }
+
+  function canMove() {
+    for (let r = 0; r < 4; r++) {
+      for (let c = 0; c < 4; c++) {
+        if (!board[r][c]) return true;
+        if (r < 3 && board[r][c] === board[r + 1][c]) return true;
+        if (c < 3 && board[r][c] === board[r][c + 1]) return true;
+      }
+    }
+    return false;
+  }
+
+  function move(dir) {
+    if (overlay.classList.contains('show')) return;
+    const snapshot = board.map(r => r.slice());
+    const prevScore = score;
+    let moved = false;
+    let added = 0;
+
+    for (let i = 0; i < 4; i++) {
+      let line = [];
+      for (let j = 0; j < 4; j++) {
+        if (dir === 'left') line.push(board[i][j]);
+        else if (dir === 'right') line.push(board[i][3 - j]);
+        else if (dir === 'up') line.push(board[j][i]);
+        else line.push(board[3 - j][i]);
+      }
+      const { out, gained } = slideLine(line);
+      added += gained;
+      for (let j = 0; j < 4; j++) {
+        const r = dir === 'left' || dir === 'right' ? i : (dir === 'up' ? j : 3 - j);
+        const c = dir === 'up' || dir === 'down' ? i : (dir === 'left' ? j : 3 - j);
+        if (board[r][c] !== out[j]) moved = true;
+        board[r][c] = out[j];
+      }
+    }
+
+    if (!moved) return;
+    prevState = { board: snapshot, score: prevScore };
+    score += added;
+    const popSet = new Set();
+    spawn(popSet);
+    render(popSet);
+
+    if (!wonShown && board.some(r => r.includes(2048))) {
+      wonShown = true;
+      ovTitle.textContent = 'Target 2048 Tercapai!';
+      ovMsg.textContent = 'Skor saat ini ' + score + '. Kamu bisa lanjut kejar 4096.';
+      contBtn.style.display = 'inline-block';
+      overlay.classList.add('show');
+    } else if (!canMove()) {
+      ovTitle.textContent = 'Permainan Selesai';
+      ovMsg.textContent = 'Skor akhir kamu ' + score + '.';
+      contBtn.style.display = 'none';
+      overlay.classList.add('show');
+    }
+  }
+
+  function reset() {
+    board = Array.from({ length: 4 }, () => [0, 0, 0, 0]);
+    prevState = null;
+    score = 0;
+    wonShown = false;
+    overlay.classList.remove('show');
+    const popSet = new Set();
+    spawn(popSet);
+    spawn(popSet);
+    render(popSet);
+  }
+
+  undoBtn.addEventListener('click', () => {
+    if (!prevState) return;
+    board = prevState.board.map(r => r.slice());
+    score = prevState.score;
+    prevState = null;
+    overlay.classList.remove('show');
+    render();
+  });
+  newBtn.addEventListener('click', reset);
+  retryBtn.addEventListener('click', reset);
+  contBtn.addEventListener('click', () => overlay.classList.remove('show'));
+
+  document.querySelectorAll('[data-dir]').forEach(btn => {
+    btn.addEventListener('click', () => move(btn.dataset.dir));
+  });
+
+  let sx = 0, sy = 0;
+  wrap.addEventListener('pointerdown', e => { sx = e.clientX; sy = e.clientY; });
+  wrap.addEventListener('pointerup', e => {
+    const dx = e.clientX - sx, dy = e.clientY - sy;
+    if (Math.max(Math.abs(dx), Math.abs(dy)) < 24) return;
+    move(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up'));
+  });
+
+  window.addEventListener('keydown', e => {
+    const map = { ArrowUp: 'up', w: 'up', W: 'up', ArrowDown: 'down', s: 'down', S: 'down', ArrowLeft: 'left', a: 'left', A: 'left', ArrowRight: 'right', d: 'right', D: 'right' };
+    if (map[e.key]) { e.preventDefault(); move(map[e.key]); }
+    else if (e.key === 'Escape' && overlay.classList.contains('show')) overlay.classList.remove('show');
+  });
+
+  reset();
+})();
+</script>
+</body>
+</html>

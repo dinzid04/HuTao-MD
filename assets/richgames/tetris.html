@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Block Drop Tetris</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none}
+:root{--bg:#111827;--panel:#1f2937;--line:#374151;--ink:#f9fafb;--muted:#9ca3af;--accent:#38bdf8}
+html,body{background:transparent;color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;overflow-x:hidden;touch-action:manipulation}
+button{font:inherit;cursor:pointer;border:0;background:none;color:inherit}
+button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+main{width:100%;max-width:380px;margin:0 auto;padding:12px}
+.shell{background:var(--bg);border:1px solid var(--line);border-radius:14px;padding:14px}
+header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:8px}
+h1{font-size:19px;font-weight:800}
+.top-btns{display:flex;gap:6px}
+.btn-sm{min-height:36px;padding:0 12px;border-radius:8px;font-size:12px;font-weight:700;background:var(--panel);border:1px solid var(--line)}
+.stage{display:grid;grid-template-columns:1fr 94px;gap:10px;align-items:start}
+.well{position:relative;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#0b1120}
+#board{display:block;width:100%;height:auto;aspect-ratio:1/2}
+.side{display:flex;flex-direction:column;gap:8px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:8px;text-align:center}
+.card span{display:block;font-size:10px;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted);margin-bottom:2px}
+.card strong{font-size:16px;font-variant-numeric:tabular-nums}
+#next{display:block;margin:4px auto 0;width:72px;height:72px;background:#0b1120;border-radius:6px}
+.overlay{position:absolute;inset:0;background:rgba(11,17,32,.88);display:none;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:14px;text-align:center}
+.overlay.show{display:flex}
+.overlay h2{font-size:19px;font-weight:800}
+.overlay p{font-size:12px;color:var(--muted)}
+.btn-primary{min-height:44px;padding:0 18px;border-radius:9px;background:var(--accent);color:#082f49;font-weight:800;font-size:14px}
+.controls{margin-top:12px;display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.ctrl{min-height:48px;border-radius:10px;background:var(--panel);border:1px solid var(--line);font-size:15px;font-weight:700;color:var(--ink)}
+.ctrl:active{background:var(--accent);color:#082f49}
+.ctrl.wide{grid-column:span 4;min-height:44px;font-size:13px;background:#1e3a5f;border-color:#2563eb}
+</style>
+</head>
+<body>
+<main>
+  <section class="shell" aria-label="Permainan Block Drop">
+    <header>
+      <h1>Block Drop</h1>
+      <div class="top-btns">
+        <button id="pauseBtn" class="btn-sm" type="button">Jeda</button>
+        <button id="resetBtn" class="btn-sm" type="button">Ulang</button>
+      </div>
+    </header>
+    <div class="stage">
+      <div class="well">
+        <canvas id="board" width="200" height="400"></canvas>
+        <div class="overlay show" id="overlay" role="dialog" aria-live="polite">
+          <h2 id="ovTitle">Block Drop</h2>
+          <p id="ovMsg">Susun balok sampai penuh satu baris untuk mencetak skor.</p>
+          <button id="startBtn" class="btn-primary" type="button">Mulai</button>
+        </div>
+      </div>
+      <aside class="side">
+        <div class="card"><span>Berikutnya</span><canvas id="next" width="80" height="80"></canvas></div>
+        <div class="card"><span>Skor</span><strong id="score">0</strong></div>
+        <div class="card"><span>Baris</span><strong id="lines">0</strong></div>
+        <div class="card"><span>Level</span><strong id="level">1</strong></div>
+        <div class="card"><span>Terbaik</span><strong id="best">0</strong></div>
+      </aside>
+    </div>
+    <div class="controls" aria-label="Kontrol balok">
+      <button class="ctrl" type="button" data-act="left" aria-label="Geser kiri">&#9664;</button>
+      <button class="ctrl" type="button" data-act="rotate" aria-label="Putar balok">Putar</button>
+      <button class="ctrl" type="button" data-act="down" aria-label="Turunkan">&#9660;</button>
+      <button class="ctrl" type="button" data-act="right" aria-label="Geser kanan">&#9654;</button>
+      <button class="ctrl wide" type="button" data-act="drop">Jatuhkan Cepat</button>
+    </div>
+  </section>
+</main>
+<script>
+(() => {
+  const cv = document.getElementById('board'), ctx = cv.getContext('2d');
+  const ncv = document.getElementById('next'), nctx = ncv.getContext('2d');
+  const scoreEl = document.getElementById('score'), linesEl = document.getElementById('lines');
+  const levelEl = document.getElementById('level'), bestEl = document.getElementById('best');
+  const overlay = document.getElementById('overlay'), ovTitle = document.getElementById('ovTitle'), ovMsg = document.getElementById('ovMsg');
+  const startBtn = document.getElementById('startBtn'), pauseBtn = document.getElementById('pauseBtn'), resetBtn = document.getElementById('resetBtn');
+
+  const COLS = 10, ROWS = 20, SZ = 20;
+  const COLORS = ['', '#38bdf8', '#fbbf24', '#c084fc', '#4ade80', '#f87171', '#60a5fa', '#fb923c'];
+  const SHAPES = [
+    [[1,1,1,1]],
+    [[2,2],[2,2]],
+    [[0,3,0],[3,3,3]],
+    [[0,4,4],[4,4,0]],
+    [[5,5,0],[0,5,5]],
+    [[6,0,0],[6,6,6]],
+    [[0,0,7],[7,7,7]]
+  ];
+
+  let grid = [], cur = null, nxt = null, bag = [], score = 0, lines = 0, level = 1, best = 0;
+  let running = false, paused = false, lastTime = 0, dropAcc = 0, rafId = 0;
+  try { best = parseInt(localStorage.getItem('shiki_tetris_best') || '0', 10) || 0; } catch {}
+  bestEl.textContent = String(best);
+
+  function pullPiece() {
+    if (!bag.length) bag = [0,1,2,3,4,5,6].sort(() => Math.random() - 0.5);
+    const m = SHAPES[bag.pop()].map(r => r.slice());
+    return { m, x: Math.floor((COLS - m[0].length) / 2), y: 0 };
+  }
+
+  function collide(p, ox = 0, oy = 0, mat = p.m) {
+    for (let y = 0; y < mat.length; y++) {
+      for (let x = 0; x < mat[y].length; x++) {
+        if (!mat[y][x]) continue;
+        const nx = p.x + x + ox, ny = p.y + y + oy;
+        if (nx < 0 || nx >= COLS || ny >= ROWS) return true;
+        if (ny >= 0 && grid[ny][nx]) return true;
+      }
+    }
+    return false;
+  }
+
+  function rotateMat(m) {
+    return m[0].map((_, i) => m.map(r => r[i]).reverse());
+  }
+
+  function drawCell(c, x, y, val, size, alpha = 1) {
+    c.globalAlpha = alpha;
+    c.fillStyle = COLORS[val];
+    c.fillRect(x * size + 1, y * size + 1, size - 2, size - 2);
+    c.fillStyle = 'rgba(255,255,255,0.22)';
+    c.fillRect(x * size + 1, y * size + 1, size - 2, 3);
+    c.globalAlpha = 1;
+  }
+
+  function drawNext() {
+    nctx.fillStyle = '#0b1120';
+    nctx.fillRect(0, 0, ncv.width, ncv.height);
+    if (!nxt) return;
+    const s = 16;
+    const ox = (ncv.width - nxt.m[0].length * s) / 2;
+    const oy = (ncv.height - nxt.m.length * s) / 2;
+    nxt.m.forEach((row, y) => row.forEach((v, x) => {
+      if (!v) return;
+      nctx.fillStyle = COLORS[v];
+      nctx.fillRect(ox + x * s + 1, oy + y * s + 1, s - 2, s - 2);
+    }));
+  }
+
+  function draw() {
+    ctx.fillStyle = '#0b1120';
+    ctx.fillRect(0, 0, cv.width, cv.height);
+    ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+    for (let x = 1; x < COLS; x++) { ctx.beginPath(); ctx.moveTo(x * SZ, 0); ctx.lineTo(x * SZ, cv.height); ctx.stroke(); }
+    for (let y = 1; y < ROWS; y++) { ctx.beginPath(); ctx.moveTo(0, y * SZ); ctx.lineTo(cv.width, y * SZ); ctx.stroke(); }
+
+    grid.forEach((row, y) => row.forEach((v, x) => { if (v) drawCell(ctx, x, y, v, SZ); }));
+    if (cur) {
+      let gy = cur.y;
+      while (!collide(cur, 0, gy - cur.y + 1)) gy++;
+      cur.m.forEach((row, y) => row.forEach((v, x) => { if (v) drawCell(ctx, cur.x + x, gy + y, v, SZ, 0.2); }));
+      cur.m.forEach((row, y) => row.forEach((v, x) => { if (v) drawCell(ctx, cur.x + x, cur.y + y, v, SZ, 1); }));
+    }
+  }
+
+  function lockPiece() {
+    cur.m.forEach((row, y) => row.forEach((v, x) => {
+      if (v && cur.y + y >= 0) grid[cur.y + y][cur.x + x] = v;
+    }));
+    let cleared = 0;
+    for (let y = ROWS - 1; y >= 0; y--) {
+      if (grid[y].every(v => v !== 0)) {
+        grid.splice(y, 1);
+        grid.unshift(Array(COLS).fill(0));
+        cleared++;
+        y++;
+      }
+    }
+    if (cleared) {
+      const pts = [0, 100, 300, 500, 800];
+      score += (pts[cleared] || 800) * level;
+      lines += cleared;
+      level = Math.floor(lines / 8) + 1;
+      if (score > best) {
+        best = score;
+        try { localStorage.setItem('shiki_tetris_best', String(best)); } catch {}
+      }
+      scoreEl.textContent = String(score);
+      linesEl.textContent = String(lines);
+      levelEl.textContent = String(level);
+      bestEl.textContent = String(best);
+    }
+    cur = nxt;
+    nxt = pullPiece();
+    drawNext();
+    if (collide(cur, 0, 0)) {
+      running = false;
+      ovTitle.textContent = 'Penuh!';
+      ovMsg.textContent = 'Skor akhir ' + score + ' (' + lines + ' baris).';
+      startBtn.textContent = 'Main Lagi';
+      overlay.classList.add('show');
+    }
+  }
+
+  function step(act) {
+    if (!running || paused || !cur) return;
+    if (act === 'left' && !collide(cur, -1, 0)) cur.x--;
+    else if (act === 'right' && !collide(cur, 1, 0)) cur.x++;
+    else if (act === 'down') {
+      if (!collide(cur, 0, 1)) cur.y++;
+      else lockPiece();
+    } else if (act === 'drop') {
+      while (!collide(cur, 0, 1)) { cur.y++; score += 2; }
+      scoreEl.textContent = String(score);
+      lockPiece();
+    } else if (act === 'rotate') {
+      const r = rotateMat(cur.m);
+      for (const kick of [0, -1, 1, -2, 2]) {
+        if (!collide(cur, kick, 0, r)) { cur.m = r; cur.x += kick; break; }
+      }
+    }
+    draw();
+  }
+
+  function loop(ts) {
+    if (!running) return;
+    if (!paused) {
+      const dt = ts - lastTime;
+      dropAcc += dt;
+      const interval = Math.max(120, 720 - (level - 1) * 65);
+      if (dropAcc >= interval) {
+        dropAcc = 0;
+        step('down');
+      }
+    }
+    lastTime = ts;
+    rafId = requestAnimationFrame(loop);
+  }
+
+  function start() {
+    cancelAnimationFrame(rafId);
+    grid = Array.from({ length: ROWS }, () => Array(COLS).fill(0));
+    bag = [];
+    score = 0; lines = 0; level = 1; paused = false; running = true; dropAcc = 0;
+    scoreEl.textContent = '0'; linesEl.textContent = '0'; levelEl.textContent = '1';
+    pauseBtn.textContent = 'Jeda';
+    overlay.classList.remove('show');
+    cur = pullPiece();
+    nxt = pullPiece();
+    drawNext();
+    draw();
+    lastTime = performance.now();
+    rafId = requestAnimationFrame(loop);
+  }
+
+  startBtn.addEventListener('click', start);
+  resetBtn.addEventListener('click', start);
+  pauseBtn.addEventListener('click', () => {
+    if (!running) return;
+    paused = !paused;
+    pauseBtn.textContent = paused ? 'Lanjut' : 'Jeda';
+    if (paused) {
+      ovTitle.textContent = 'Dijeda';
+      ovMsg.textContent = 'Tekan tombol Lanjut di kanan atas.';
+      startBtn.textContent = 'Ulangi';
+      overlay.classList.add('show');
+    } else {
+      overlay.classList.remove('show');
+    }
+  });
+
+  document.querySelectorAll('[data-act]').forEach(b => b.addEventListener('click', () => step(b.dataset.act)));
+  window.addEventListener('keydown', e => {
+    if (e.key === 'ArrowLeft' || e.key === 'a') { e.preventDefault(); step('left'); }
+    else if (e.key === 'ArrowRight' || e.key === 'd') { e.preventDefault(); step('right'); }
+    else if (e.key === 'ArrowDown' || e.key === 's') { e.preventDefault(); step('down'); }
+    else if (e.key === 'ArrowUp' || e.key === 'w') { e.preventDefault(); step('rotate'); }
+    else if (e.key === ' ') { e.preventDefault(); step('drop'); }
+  });
+
+  grid = Array.from({ length: ROWS }, () => Array(COLS).fill(0));
+  draw();
+})();
+</script>
+</body>
+</html>

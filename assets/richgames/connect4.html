@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Connect 4</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none}
+:root{--bg:#0f1c2e;--board:#1d4ed8;--hole:#0b1320;--line:#2563eb;--ink:#f8fafc;--muted:#93c5fd;--p1:#ef4444;--p2:#facc15}
+html,body{background:transparent;color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;overflow-x:hidden;touch-action:manipulation}
+button{font:inherit;cursor:pointer;border:0;background:none;color:inherit}
+button:focus-visible{outline:2px solid var(--p2);outline-offset:2px}
+main{width:100%;max-width:390px;margin:0 auto;padding:12px}
+.shell{background:var(--bg);border:1px solid #1e3a5f;border-radius:14px;padding:14px}
+header{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px}
+h1{font-size:19px;font-weight:800}
+.scores{display:flex;gap:8px;font-size:12px;font-weight:700;font-variant-numeric:tabular-nums}
+.tag{display:flex;align-items:center;gap:5px;background:#162840;border:1px solid #1e3a5f;padding:5px 9px;border-radius:8px}
+.dot{width:10px;height:10px;border-radius:50%;display:inline-block}
+.dot.r{background:var(--p1)}.dot.y{background:var(--p2)}
+.bar{display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:10px;flex-wrap:wrap}
+.modes{display:flex;gap:5px}
+.btn{min-height:38px;padding:0 11px;border-radius:8px;font-size:12px;font-weight:700;background:#162840;border:1px solid #254872;color:#cbd5e1}
+.btn.active{background:var(--p2);border-color:var(--p2);color:#0f172a}
+.status{font-size:13px;font-weight:700;margin-bottom:10px;color:#e2e8f0;min-height:20px}
+.drop-row{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;margin-bottom:6px}
+.drop-btn{min-height:38px;border-radius:8px;background:#162840;border:1px solid #254872;font-size:14px;font-weight:800;color:#cbd5e1}
+.drop-btn:active{background:#2563eb;color:#fff}
+.board{background:var(--board);padding:8px;border-radius:12px;border:2px solid #1e40af;display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+.cell{aspect-ratio:1/1;border-radius:50%;background:var(--hole);border:2px solid #1e3a8a;position:relative;transition:transform .16s ease}
+.cell.p1{background:var(--p1);border-color:#b91c1c}
+.cell.p2{background:var(--p2);border-color:#ca8a04}
+.cell.win{box-shadow:0 0 0 3px #ffffff inset;transform:scale(1.06)}
+@media(prefers-reduced-motion:reduce){.cell{transition:none}}
+</style>
+</head>
+<body>
+<main>
+  <section class="shell" aria-label="Permainan Connect 4">
+    <header>
+      <h1>Connect 4</h1>
+      <div class="scores">
+        <div class="tag"><span class="dot r"></span><span id="s1">0</span></div>
+        <div class="tag"><span class="dot y"></span><span id="s2">0</span></div>
+      </div>
+    </header>
+    <div class="bar">
+      <div class="modes" role="group" aria-label="Mode lawan">
+        <button class="btn active" type="button" data-mode="ai">vs AI</button>
+        <button class="btn" type="button" data-mode="pvp">2 Pemain</button>
+      </div>
+      <button id="resetBtn" class="btn" type="button">Ronde Baru</button>
+    </div>
+    <p id="status" class="status" role="status" aria-live="polite">Giliran Merah: ketuk kolom untuk menjatuhkan koin.</p>
+    <div id="dropRow" class="drop-row" aria-label="Pilih kolom"></div>
+    <div id="board" class="board" role="grid" aria-label="Papan 7 kolom kali 6 baris"></div>
+  </section>
+</main>
+<script>
+(() => {
+  const ROWS = 6, COLS = 7;
+  const boardEl = document.getElementById('board');
+  const dropRow = document.getElementById('dropRow');
+  const statusEl = document.getElementById('status');
+  const s1El = document.getElementById('s1'), s2El = document.getElementById('s2');
+  const resetBtn = document.getElementById('resetBtn');
+
+  let grid = [], turn = 1, mode = 'ai', over = false, thinking = false, winCells = new Set(), s1 = 0, s2 = 0;
+
+  function findRow(col) {
+    for (let r = ROWS - 1; r >= 0; r--) if (grid[r][col] === 0) return r;
+    return -1;
+  }
+
+  function checkWinner(b) {
+    const dirs = [[0,1],[1,0],[1,1],[1,-1]];
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        const p = b[r][c];
+        if (!p) continue;
+        for (const [dr, dc] of dirs) {
+          const line = [[r, c]];
+          for (let k = 1; k < 4; k++) {
+            const nr = r + dr * k, nc = c + dc * k;
+            if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS && b[nr][nc] === p) line.push([nr, nc]);
+            else break;
+          }
+          if (line.length === 4) return { winner: p, line };
+        }
+      }
+    }
+    if (b[0].every(v => v !== 0)) return { winner: 0, line: [] };
+    return null;
+  }
+
+  function aiPickCol() {
+    const valid = [];
+    for (let c = 0; c < COLS; c++) if (findRow(c) !== -1) valid.push(c);
+    if (!valid.length) return -1;
+    // 1. Menang langsung
+    for (const c of valid) {
+      const r = findRow(c);
+      grid[r][c] = 2;
+      const w = checkWinner(grid);
+      grid[r][c] = 0;
+      if (w && w.winner === 2) return c;
+    }
+    // 2. Blokir kemenangan lawan
+    for (const c of valid) {
+      const r = findRow(c);
+      grid[r][c] = 1;
+      const w = checkWinner(grid);
+      grid[r][c] = 0;
+      if (w && w.winner === 1) return c;
+    }
+    // 3. Hindari memberi langkah menang ke lawan di atasnya, prioritaskan tengah
+    const order = [3, 2, 4, 1, 5, 0, 6].filter(c => valid.includes(c));
+    for (const c of order) {
+      const r = findRow(c);
+      if (r > 0) {
+        grid[r][c] = 2;
+        grid[r - 1][c] = 1;
+        const danger = checkWinner(grid)?.winner === 1;
+        grid[r - 1][c] = 0;
+        grid[r][c] = 0;
+        if (!danger) return c;
+      } else {
+        return c;
+      }
+    }
+    return order[0];
+  }
+
+  function drop(col) {
+    if (over || thinking) return;
+    const r = findRow(col);
+    if (r === -1) return;
+    grid[r][col] = turn;
+    const res = checkWinner(grid);
+    if (res) {
+      over = true;
+      if (res.winner === 1) { s1++; s1El.textContent = String(s1); statusEl.textContent = 'Merah Menang!'; }
+      else if (res.winner === 2) { s2++; s2El.textContent = String(s2); statusEl.textContent = mode === 'ai' ? 'AI Kuning Menang!' : 'Kuning Menang!'; }
+      else { statusEl.textContent = 'Permainan Seri!'; }
+      winCells = new Set(res.line.map(([wr, wc]) => wr + ',' + wc));
+      render();
+      return;
+    }
+    turn = turn === 1 ? 2 : 1;
+    if (mode === 'ai' && turn === 2) {
+      thinking = true;
+      statusEl.textContent = 'AI Kuning sedang berpikir...';
+      render();
+      setTimeout(() => {
+        thinking = false;
+        const c = aiPickCol();
+        if (c !== -1) drop(c);
+      }, 320);
+    } else {
+      statusEl.textContent = turn === 1 ? 'Giliran Merah: pilih kolom.' : 'Giliran Kuning: pilih kolom.';
+      render();
+    }
+  }
+
+  function render() {
+    dropRow.innerHTML = '';
+    for (let c = 0; c < COLS; c++) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'drop-btn';
+      b.textContent = String(c + 1);
+      b.disabled = over || thinking || findRow(c) === -1;
+      b.setAttribute('aria-label', 'Jatuhkan di kolom ' + (c + 1));
+      b.addEventListener('click', () => drop(c));
+      dropRow.appendChild(b);
+    }
+    boardEl.innerHTML = '';
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        const cell = document.createElement('button');
+        cell.type = 'button';
+        cell.className = 'cell' + (grid[r][c] === 1 ? ' p1' : grid[r][c] === 2 ? ' p2' : '') + (winCells.has(r + ',' + c) ? ' win' : '');
+        cell.setAttribute('aria-label', 'Kolom ' + (c + 1));
+        cell.addEventListener('click', () => drop(c));
+        boardEl.appendChild(cell);
+      }
+    }
+  }
+
+  function reset() {
+    grid = Array.from({ length: ROWS }, () => Array(COLS).fill(0));
+    turn = 1; over = false; thinking = false; winCells = new Set();
+    statusEl.textContent = 'Giliran Merah: ketuk kolom untuk menjatuhkan koin.';
+    render();
+  }
+
+  document.querySelectorAll('[data-mode]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('[data-mode]').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      mode = btn.dataset.mode;
+      s1 = 0; s2 = 0; s1El.textContent = '0'; s2El.textContent = '0';
+      reset();
+    });
+  });
+  resetBtn.addEventListener('click', reset);
+  reset();
+})();
+</script>
+</body>
+</html>

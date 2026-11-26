@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Simon Pattern</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none}
+:root{--bg:#141416;--panel:#1f1f23;--line:#323238;--ink:#f4f4f5;--muted:#a1a1aa;--accent:#38bdf8}
+html,body{background:transparent;color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;overflow-x:hidden;touch-action:manipulation}
+button{font:inherit;cursor:pointer;border:0;background:none;color:inherit}
+button:focus-visible{outline:2px solid #ffffff;outline-offset:2px}
+main{width:100%;max-width:360px;margin:0 auto;padding:14px}
+.shell{background:var(--bg);border:1px solid var(--line);border-radius:16px;padding:16px}
+header{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:12px}
+h1{font-size:20px;font-weight:800}
+.hud{display:flex;gap:8px}
+.stat{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:5px 10px;text-align:center;min-width:64px}
+.stat span{display:block;font-size:10px;color:var(--muted);text-transform:uppercase}
+.stat strong{font-size:16px;font-variant-numeric:tabular-nums}
+.status{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px;text-align:center;font-size:13px;font-weight:700;margin-bottom:14px;min-height:40px;display:flex;align-items:center;justify-content:center}
+.status.watch{color:#fbbf24;border-color:#78350f}
+.status.play{color:#4ade80;border-color:#14532d}
+.status.err{color:#fca5a5;border-color:#7f1d1d}
+.pads{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px}
+.pad{aspect-ratio:1/1;min-height:118px;border-radius:14px;border:2px solid rgba(255,255,255,.12);font-size:15px;font-weight:800;letter-spacing:0.04em;color:#fff;opacity:.72;transition:opacity .12s ease,transform .12s ease,filter .12s ease}
+.pad:active,.pad.lit{opacity:1;transform:scale(.97);filter:brightness(1.28);border-color:#fff}
+.pad[data-c="0"]{background:#dc2626}
+.pad[data-c="1"]{background:#16a34a}
+.pad[data-c="2"]{background:#d97706}
+.pad[data-c="3"]{background:#0284c7}
+.pad:disabled{cursor:not-allowed}
+.actions{display:flex;justify-content:center}
+.btn-main{width:100%;min-height:46px;border-radius:10px;background:#f4f4f5;color:#18181b;font-weight:800;font-size:14px}
+.btn-main:active{transform:scale(.98)}
+@media(prefers-reduced-motion:reduce){.pad{transition:none}}
+</style>
+</head>
+<body>
+<main>
+  <section class="shell" aria-label="Permainan Simon Pattern">
+    <header>
+      <h1>Simon Pattern</h1>
+      <div class="hud">
+        <div class="stat"><span>Ronde</span><strong id="round">0</strong></div>
+        <div class="stat"><span>Terbaik</span><strong id="best">0</strong></div>
+      </div>
+    </header>
+    <div id="status" class="status" role="status" aria-live="polite">Tekan Mulai lalu ikuti urutan warna yang menyala.</div>
+    <div class="pads" role="group" aria-label="Empat tombol warna">
+      <button class="pad" type="button" data-c="0" disabled>MERAH</button>
+      <button class="pad" type="button" data-c="1" disabled>HIJAU</button>
+      <button class="pad" type="button" data-c="2" disabled>ORANYE</button>
+      <button class="pad" type="button" data-c="3" disabled>BIRU</button>
+    </div>
+    <div class="actions">
+      <button id="startBtn" class="btn-main" type="button">Mulai Permainan</button>
+    </div>
+  </section>
+</main>
+<script>
+(() => {
+  const pads = Array.from(document.querySelectorAll('.pad'));
+  const statusEl = document.getElementById('status');
+  const roundEl = document.getElementById('round');
+  const bestEl = document.getElementById('best');
+  const startBtn = document.getElementById('startBtn');
+
+  let seq = [], idx = 0, best = 0, accepting = false, timers = [];
+  try { best = parseInt(localStorage.getItem('shiki_simon_best') || '0', 10) || 0; } catch {}
+  bestEl.textContent = String(best);
+
+  function clearAllTimers() {
+    timers.forEach(t => clearTimeout(t));
+    timers = [];
+  }
+
+  function setPadsEnabled(on) {
+    pads.forEach(p => { p.disabled = !on; });
+  }
+
+  function flash(c, ms = 360) {
+    pads[c].classList.add('lit');
+    timers.push(setTimeout(() => pads[c].classList.remove('lit'), ms));
+  }
+
+  function playSequence() {
+    accepting = false;
+    setPadsEnabled(false);
+    statusEl.className = 'status watch';
+    statusEl.textContent = 'Perhatikan urutan (' + seq.length + ' langkah)...';
+    const gap = Math.max(380, 660 - seq.length * 18);
+    seq.forEach((color, step) => {
+      timers.push(setTimeout(() => flash(color, Math.min(360, gap - 120)), 400 + step * gap));
+    });
+    timers.push(setTimeout(() => {
+      idx = 0;
+      accepting = true;
+      setPadsEnabled(true);
+      statusEl.className = 'status play';
+      statusEl.textContent = 'Giliran kamu! Ulangi ' + seq.length + ' warna.';
+    }, 450 + seq.length * gap));
+  }
+
+  function nextRound() {
+    seq.push(Math.floor(Math.random() * 4));
+    roundEl.textContent = String(seq.length);
+    playSequence();
+  }
+
+  function start() {
+    clearAllTimers();
+    pads.forEach(p => p.classList.remove('lit'));
+    seq = [];
+    idx = 0;
+    startBtn.textContent = 'Ulangi dari Awal';
+    nextRound();
+  }
+
+  pads.forEach(pad => {
+    pad.addEventListener('click', () => {
+      if (!accepting) return;
+      const c = parseInt(pad.dataset.c, 10);
+      flash(c, 220);
+      if (c !== seq[idx]) {
+        accepting = false;
+        setPadsEnabled(false);
+        const reached = Math.max(0, seq.length - 1);
+        statusEl.className = 'status err';
+        statusEl.textContent = 'Salah urutan! Kamu bertahan ' + reached + ' ronde.';
+        startBtn.textContent = 'Main Lagi';
+        return;
+      }
+      idx++;
+      if (idx === seq.length) {
+        accepting = false;
+        setPadsEnabled(false);
+        if (seq.length > best) {
+          best = seq.length;
+          bestEl.textContent = String(best);
+          try { localStorage.setItem('shiki_simon_best', String(best)); } catch {}
+        }
+        statusEl.className = 'status play';
+        statusEl.textContent = 'Benar! Bersiap ke ronde ' + (seq.length + 1) + '...';
+        timers.push(setTimeout(nextRound, 750));
+      }
+    });
+  });
+
+  startBtn.addEventListener('click', start);
+  window.addEventListener('keydown', e => {
+    if (!accepting) return;
+    const k = { '1': 0, '2': 1, '3': 2, '4': 3 };
+    if (k[e.key] !== undefined) pads[k[e.key]].click();
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Minesweeper Tactical</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none}
+:root{--bg:#18181b;--surface:#27272a;--tile:#3f3f46;--open:#1f1f23;--line:#52525b;--ink:#fafafa;--muted:#a1a1aa;--accent:#dc2626;--safe:#22c55e}
+html,body{background:transparent;color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;overflow-x:hidden;touch-action:manipulation}
+button{font:inherit;cursor:pointer;border:0;background:none;color:inherit}
+button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+main{width:100%;max-width:390px;margin:0 auto;padding:12px}
+.shell{background:var(--bg);border:1px solid #3f3f46;border-radius:14px;padding:14px}
+header{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px}
+h1{font-size:18px;font-weight:800}
+.hud{display:flex;gap:8px}
+.box{background:var(--surface);border:1px solid #3f3f46;border-radius:8px;padding:5px 10px;text-align:center;min-width:60px}
+.box span{display:block;font-size:10px;color:var(--muted);text-transform:uppercase}
+.box strong{font-size:15px;font-variant-numeric:tabular-nums}
+.toolbar{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+.mode-group{display:flex;gap:6px}
+.btn{min-height:44px;padding:0 12px;border-radius:9px;font-size:12px;font-weight:700;background:var(--surface);border:1px solid #3f3f46;color:var(--ink)}
+.btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn-reset{background:#27272a;border-color:#52525b}
+.status{font-size:13px;font-weight:600;color:var(--muted);margin-bottom:10px;min-height:20px}
+.status.win{color:var(--safe)}
+.status.lose{color:#f87171}
+.grid{display:grid;gap:4px;background:#121215;padding:6px;border-radius:10px;border:1px solid #3f3f46}
+.cell{aspect-ratio:1/1;min-height:34px;border-radius:6px;font-weight:800;font-size:15px;display:flex;align-items:center;justify-content:center;background:var(--tile);border-top:2px solid #52525b;border-bottom:2px solid #27272a;transition:background .1s}
+.cell.open{background:var(--open);border:1px solid #2e2e33;cursor:default}
+.cell.flag{background:#451a1a;border-color:#7f1d1d;color:#fca5a5}
+.cell.boom{background:#dc2626;border-color:#991b1b;color:#fff}
+.n1{color:#60a5fa}.n2{color:#4ade80}.n3{color:#f87171}.n4{color:#c084fc}.n5{color:#fbbf24}.n6{color:#2dd4bf}.n7{color:#f472b6}.n8{color:#e4e4e7}
+</style>
+</head>
+<body>
+<main>
+  <section class="shell" aria-label="Permainan Minesweeper">
+    <header>
+      <h1>Minesweeper</h1>
+      <div class="hud">
+        <div class="box"><span>Bom</span><strong id="minesLeft">10</strong></div>
+        <div class="box"><span>Waktu</span><strong id="timer">00:00</strong></div>
+      </div>
+    </header>
+    <div class="toolbar">
+      <div class="mode-group">
+        <button id="digBtn" class="btn active" type="button">Gali</button>
+        <button id="flagBtn" class="btn" type="button">Tandai Bom</button>
+      </div>
+      <div class="mode-group">
+        <button id="sizeBtn" class="btn" type="button">8x8</button>
+        <button id="resetBtn" class="btn btn-reset" type="button">Baru</button>
+      </div>
+    </div>
+    <p id="status" class="status" role="status" aria-live="polite">Ketuk kotak mana saja untuk memulai. Langkah pertama selalu aman.</p>
+    <div id="grid" class="grid" role="grid"></div>
+  </section>
+</main>
+<script>
+(() => {
+  const gridEl = document.getElementById('grid');
+  const minesEl = document.getElementById('minesLeft');
+  const timerEl = document.getElementById('timer');
+  const statusEl = document.getElementById('status');
+  const digBtn = document.getElementById('digBtn');
+  const flagBtn = document.getElementById('flagBtn');
+  const sizeBtn = document.getElementById('sizeBtn');
+  const resetBtn = document.getElementById('resetBtn');
+
+  let N = 8, MINES = 10, flagMode = false, cells = [], placed = false, over = false, secs = 0, tId = null;
+
+  function fmt(s) {
+    return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
+  }
+
+  function neighbors(i) {
+    const r = Math.floor(i / N), c = i % N, out = [];
+    for (let dr = -1; dr <= 1; dr++) {
+      for (let dc = -1; dc <= 1; dc++) {
+        if (!dr && !dc) continue;
+        const nr = r + dr, nc = c + dc;
+        if (nr >= 0 && nr < N && nc >= 0 && nc < N) out.push(nr * N + nc);
+      }
+    }
+    return out;
+  }
+
+  function placeMines(safeIdx) {
+    const banned = new Set([safeIdx, ...neighbors(safeIdx)]);
+    const pool = [];
+    for (let i = 0; i < N * N; i++) if (!banned.has(i)) pool.push(i);
+    pool.sort(() => Math.random() - 0.5);
+    for (let k = 0; k < Math.min(MINES, pool.length); k++) cells[pool[k]].mine = true;
+    for (let i = 0; i < N * N; i++) {
+      cells[i].adj = neighbors(i).filter(j => cells[j].mine).length;
+    }
+    placed = true;
+    clearInterval(tId);
+    tId = setInterval(() => { secs++; timerEl.textContent = fmt(secs); }, 1000);
+  }
+
+  function reveal(idx) {
+    const stack = [idx];
+    while (stack.length) {
+      const i = stack.pop();
+      const cell = cells[i];
+      if (cell.open || cell.flag) continue;
+      cell.open = true;
+      if (!cell.mine && cell.adj === 0) {
+        for (const n of neighbors(i)) if (!cells[n].open && !cells[n].flag) stack.push(n);
+      }
+    }
+  }
+
+  function checkWin() {
+    const safeOpened = cells.filter(c => !c.mine && c.open).length;
+    if (safeOpened === N * N - MINES) {
+      over = true;
+      clearInterval(tId);
+      cells.forEach(c => { if (c.mine) c.flag = true; });
+      statusEl.textContent = 'Menang! Semua ranjau bersih dalam ' + fmt(secs) + '.';
+      statusEl.className = 'status win';
+    }
+  }
+
+  function render() {
+    gridEl.style.gridTemplateColumns = `repeat(${N}, 1fr)`;
+    gridEl.innerHTML = '';
+    const flags = cells.filter(c => c.flag).length;
+    minesEl.textContent = String(Math.max(0, MINES - flags));
+
+    cells.forEach((cell, i) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'cell';
+      if (cell.open) {
+        btn.classList.add('open');
+        if (cell.mine) {
+          btn.classList.add('boom');
+          btn.textContent = 'X';
+          btn.setAttribute('aria-label', 'Bom meledak');
+        } else if (cell.adj > 0) {
+          btn.classList.add('n' + cell.adj);
+          btn.textContent = String(cell.adj);
+          btn.setAttribute('aria-label', cell.adj + ' bom di sekitar');
+        }
+      } else if (cell.flag) {
+        btn.classList.add('flag');
+        btn.textContent = 'P';
+        btn.setAttribute('aria-label', 'Ditandai bom');
+      } else {
+        btn.setAttribute('aria-label', 'Kotak tertutup');
+      }
+      btn.addEventListener('click', () => handleTap(i));
+      btn.addEventListener('contextmenu', e => { e.preventDefault(); toggleFlag(i); });
+      gridEl.appendChild(btn);
+    });
+  }
+
+  function toggleFlag(i) {
+    if (over || cells[i].open) return;
+    cells[i].flag = !cells[i].flag;
+    render();
+  }
+
+  function handleTap(i) {
+    if (over) return;
+    if (flagMode) return toggleFlag(i);
+    if (cells[i].flag || cells[i].open) return;
+    if (!placed) placeMines(i);
+    if (cells[i].mine) {
+      over = true;
+      clearInterval(tId);
+      cells.forEach(c => { if (c.mine) c.open = true; });
+      statusEl.textContent = 'Bom meledak! Tekan Baru untuk coba lagi.';
+      statusEl.className = 'status lose';
+      render();
+      return;
+    }
+    reveal(i);
+    checkWin();
+    render();
+  }
+
+  function init() {
+    clearInterval(tId);
+    secs = 0; placed = false; over = false;
+    timerEl.textContent = '00:00';
+    statusEl.textContent = 'Ketuk kotak mana saja untuk memulai. Langkah pertama selalu aman.';
+    statusEl.className = 'status';
+    cells = Array.from({ length: N * N }, () => ({ mine: false, open: false, flag: false, adj: 0 }));
+    render();
+  }
+
+  digBtn.addEventListener('click', () => { flagMode = false; digBtn.classList.add('active'); flagBtn.classList.remove('active'); });
+  flagBtn.addEventListener('click', () => { flagMode = true; flagBtn.classList.add('active'); digBtn.classList.remove('active'); });
+  sizeBtn.addEventListener('click', () => {
+    if (N === 8) { N = 9; MINES = 13; sizeBtn.textContent = '9x9'; }
+    else { N = 8; MINES = 10; sizeBtn.textContent = '8x8'; }
+    init();
+  });
+  resetBtn.addEventListener('click', init);
+  init();
+})();
+</script>
+</body>
+</html>
