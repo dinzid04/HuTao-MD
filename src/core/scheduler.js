@@ -431,7 +431,7 @@ function startSchedulers(database) {
             } catch (e) {
                 console.error(chalk.red('[Database] Auto-save gagal:'), e.message);
             }
-        }, 10000);
+        }, 30000);
         global._autoSaveIntervalStarted = true;
     }
 

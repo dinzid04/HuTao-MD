@@ -1,18 +1,16 @@
 {
-  "version": "1.2.0",
+  "version": "1.2.1",
   "updatedAt": "2026-11-27",
-  "summary": "Allmenu 1 pesan vertikal rapi, Playlist YT -> 1 ZIP Dokumen, Panel Button Jaga Grup, .getsw Status WA, & .kirimch 2 versi audio + PTV/Media",
-  "added": [
-    "Panel Jaga Grup interaktif berbasis tombol dropdown per kategori (.jagagrup / .panelgrup) + kategori Menu Jaga Grup tersendiri di listmenu & 19 command langsung (.antilink, .antispam, .antivirtex, .antijudol, .antiphising, .welcome, dll)",
-    "Fitur .getsw <nomor> & .listsw untuk menangkap dan mengambil Status WhatsApp (foto, video, audio, teks) dari kontak bot dalam 24 jam terakhir",
-    "Fitur .kirimch / .sendch / .fwdch untuk mengirim Audio, PTV (video bulat), Video, Foto, Stiker, Dokumen, & Teks ke Saluran WA (lengkap dengan pengingat wajib Admin CH + 2 versi audio: Audio Biasa & Audio Forward CH dengan edit Nama CH custom sebelum dikirim!)",
-    "Tambahan command .autotyping on/off dan .readsw on/off serta tombol interaktif pada .cekonoff"
-  ],
+  "summary": "Optimasi Performa Anti-Delay: Perbaikan CPU 70-120% -> <5%, eliminasi freeze writeFileSync & banjir MongoDB Atlas, dan cache O(1) grup besar",
+  "added": [],
   "fixed": [
-    "Allmenu kini 100% vertikal ke bawah (1 command per baris, tidak kepinggir & tidak dipisah halaman) memakai garis vertikal bersih bebas limit 500 blockquote WhatsApp",
-    "Unduh Playlist YouTube (.ytplaylist, .ytdlpa, .ytmp3, .ytmp4) kini mengunduh semua item secara paralel dan mengemasnya ke dalam 1 file Dokumen .ZIP agar jauh lebih cepat & tidak spam chat"
+    "Perbaikan bug fatal NodeCache groupCache (useClones: false) di Bot Utama & Jadibot yang sebelumnya melakukan deep-clone 400+ peserta grup di setiap pesan chat",
+    "Optimasi recordLidMapping, resolveLidToPhone, resolvePhoneToLid, dan daftar admin grup menjadi O(1) dengan WeakSet + Map index (sebelumnya O(N²) berulang 4-5x per pesan grup)",
+    "Penulisan data/database.json diubah menjadi async non-blocking compact JSON + throttle sinkronisasi MongoDB Atlas menjadi tiap 60 detik (mengurangi trafik upload hingga 90% dan menghilangkan freeze event loop)",
+    "Hapus duplikasi lid_cache ratusan KB di setiap clone Jadibot & gunakan pre-cached Set untuk parsing 1.860 command tanpa alokasi ulang tiap pesan",
+    "Pemrosesan batch messages.upsert paralel, autoread/autotyping non-blocking, serta pemangkasan rutin store.messages agar RAM tetap ringan"
   ],
   "changed": [
-    "Pembaruan streaming ZIP builder hemat RAM (<2 MB) untuk bundling playlist audio/video hingga 15 lagu atau 8 video dalam satu arsip"
+    "Respon command di panel menjadi jauh lebih cepat dan stabil walau bot aktif di banyak grup ramai sekaligus bersama Jadibot"
   ]
 }

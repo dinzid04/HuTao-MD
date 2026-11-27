@@ -245,6 +245,19 @@ function saveSewaNotified(data, Dinz) {
 }
 
 const getValidCommands = () => pluginLoader.getValidCommands();
+const getValidCommandsSet = () => (pluginLoader.getValidCommandsSet ? pluginLoader.getValidCommandsSet() : new Set(pluginLoader.getValidCommands()));
+const limitSvcCached = require('../services/limit');
+const chessPvpCached = require('../services/chess-pvp');
+const stlyModCached = require('../services/stickerly');
+const FREE_LIMIT_CMDS = new Set([
+    'menu', 'allmenu', 'listmenu', 'help', 'limit', 'ceklimit', 'claim',
+    'buylimit', 'belilimit', 'shoplimit', 'shop', 'me', 'profile', 'profil',
+    'leaderboard', 'lb', 'toprpg', 'top', 'ping', 'owner', 'developer', 'dev',
+    'ownerblog', 'bioowner', 'pay', 'payment', 'list', 'ceksetup', 'cekcloner',
+    'setlimit', 'limitmode', 'setlimitmode', 'setlimitharian', 'resetlimitall',
+    'addlimit', 'dellimit', 'daily', 'weekly', 'monthly', 'kerja', 'nguli',
+    'mulung', 'beg', 'nabung', 'tarik', 'atm', 'setblog', 'setam'
+]);
 
 const handler = async (Dinz, m, chatUpdate, store) => {
     return botCtx.runWithBotContext(Dinz, async () => {
@@ -267,6 +280,7 @@ const handler = async (Dinz, m, chatUpdate, store) => {
 
         const validCommandsList = getValidCommands();
         const validCommands = validCommandsList;
+        const validCommandsSet = getValidCommandsSet();
 		const getQuoted = (m.quoted || m)
 		const quoted = (getQuoted.type == 'buttonsMessage') ? getQuoted[Object.keys(getQuoted)[1]] : (getQuoted.type == 'templateMessage') ? getQuoted.hydratedTemplate[Object.keys(getQuoted.hydratedTemplate)[1]] : (getQuoted.type == 'product') ? getQuoted[Object.keys(getQuoted)[0]] : m.quoted ? m.quoted : m
 		const senderNumber = (m.sender || '').split(':')[0].replace(/[^0-9]/g, '')
@@ -297,7 +311,7 @@ const handler = async (Dinz, m, chatUpdate, store) => {
             'templateButtonReplyMessage',
             'interactiveResponseMessage'
         ].includes(m.type) || Boolean(m.interactive?.id);
-        const parsedCmd = prefixMgr.parseCommand(body, validCommands, global.db?.settings, isCreator, isButtonReply);
+        const parsedCmd = prefixMgr.parseCommand(body, validCommandsSet, global.db?.settings, isCreator, isButtonReply);
         let isCmd = parsedCmd.isCmd;
         let command = parsedCmd.command;
         let args = parsedCmd.args;
@@ -385,8 +399,7 @@ const handler = async (Dinz, m, chatUpdate, store) => {
 		}
 
         if (body && typeof body === 'string' && body.trim().length > 0 && !m.isBaileys) {
-            const chessPvp = require('../services/chess-pvp');
-            const isChessHandled = !isCmd ? await chessPvp.handleQuickChessMove(Dinz, m, body, botCtx.getBotIdentity(Dinz).botname || global.botname) : false;
+            const isChessHandled = !isCmd ? await chessPvpCached.handleQuickChessMove(Dinz, m, body, botCtx.getBotIdentity(Dinz).botname || global.botname) : false;
             if (isChessHandled) return;
             const isExtraGameHandled = !isCmd ? await handleExtraGameMessage(Dinz, m, body) : false;
             if (isExtraGameHandled) return;
@@ -500,7 +513,7 @@ const handler = async (Dinz, m, chatUpdate, store) => {
                     global._audioMenuCache.set(audioPath, cached);
                 }
 
-                await new Promise(r => setTimeout(r, 400));
+                await new Promise(r => setTimeout(r, 150));
 
                 const audioPayload = {
                     audio: cached.buffer,
@@ -885,8 +898,7 @@ const handler = async (Dinz, m, chatUpdate, store) => {
 
         let quickPickText = null;
         if (!isCmd && !m.isBaileys && body && /^\d{1,2}(\s+(?:single|satuan|pisah))?$/i.test(body.trim())) {
-            const stlyMod = require('../services/stickerly');
-            const stlySession = stlyMod.getSearchSession(Dinz, m.chat, m.sender);
+            const stlySession = stlyModCached.getSearchSession(Dinz, m.chat, m.sender);
             if (stlySession && stlySession.lastMsgId !== m.key.id) {
                 const numPick = parseInt(body.trim().split(/\s+/)[0], 10);
                 if (numPick >= 1 && numPick <= (stlySession.items || []).length) {
@@ -900,16 +912,7 @@ const handler = async (Dinz, m, chatUpdate, store) => {
 
         if (isCmd && command) {
             const cmdLower = String(command).toLowerCase();
-            const FREE_LIMIT_CMDS = new Set([
-                'menu', 'allmenu', 'listmenu', 'help', 'limit', 'ceklimit', 'claim',
-                'buylimit', 'belilimit', 'shoplimit', 'shop', 'me', 'profile', 'profil',
-                'leaderboard', 'lb', 'toprpg', 'top', 'ping', 'owner', 'developer', 'dev',
-                'ownerblog', 'bioowner', 'pay', 'payment', 'list', 'ceksetup', 'cekcloner',
-                'setlimit', 'limitmode', 'setlimitmode', 'setlimitharian', 'resetlimitall',
-                'addlimit', 'dellimit', 'daily', 'weekly', 'monthly', 'kerja', 'nguli',
-                'mulung', 'beg', 'nabung', 'tarik', 'atm', 'setblog', 'setam'
-            ]);
-            const limitSvc = require('../services/limit');
+            const limitSvc = limitSvcCached;
             const isExemptLimit = isCreator || isPrem || FREE_LIMIT_CMDS.has(cmdLower) || cmdLower.startsWith('menu');
 
             if (!isExemptLimit && limitSvc.isLimitEnabled() && checkLimit(m.sender, isCreator)) {

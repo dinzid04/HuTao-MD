@@ -42,6 +42,7 @@ const PLUGIN_PRIORITY = [
 let loadedPlugins = [];
 let commandMap = new Map();
 let validCommands = [];
+let validCommandsSet = new Set();
 let activeWatchers = [];
 let reloadTimer = null;
 
@@ -164,6 +165,7 @@ function loadAllPlugins(silent = false) {
 
     loadedPlugins = nextPlugins;
     commandMap = nextMap;
+    validCommandsSet = nextCmdSet;
     validCommands = [...nextCmdSet];
 
     if (!silent) {
@@ -240,6 +242,11 @@ function getValidCommands() {
     return validCommands;
 }
 
+function getValidCommandsSet() {
+    if (loadedPlugins.length === 0) loadAllPlugins(true);
+    return validCommandsSet;
+}
+
 function getLoadedPlugins() {
     if (loadedPlugins.length === 0) loadAllPlugins(true);
     return loadedPlugins;
@@ -254,5 +261,6 @@ module.exports = {
     loadAllPlugins,
     dispatch,
     getValidCommands,
+    getValidCommandsSet,
     getLoadedPlugins
 };

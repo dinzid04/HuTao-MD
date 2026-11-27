@@ -574,10 +574,11 @@ async function startJadibot(number, opts = {}) {
             logger: pino().child({ level: 'silent', stream: 'store' })
         });
 
-        const groupCache = new NodeCache({ stdTTL: 300, checkperiod: 120 });
+        const groupCache = new NodeCache({ stdTTL: 300, checkperiod: 120, useClones: false });
         const staleGroupCache = new Map();
+        const inflightGroupMeta = new Map();
         const sentMessageCache = new NodeCache({ stdTTL: 1800, checkperiod: 180, maxKeys: 1000, useClones: false });
-        const msgRetryCounterCache = new NodeCache({ stdTTL: 600, checkperiod: 120 });
+        const msgRetryCounterCache = new NodeCache({ stdTTL: 600, checkperiod: 120, useClones: false });
         const userDevicesCache = new NodeCache({ stdTTL: 600, checkperiod: 120, useClones: false });
 
         const Dinz = makeWASocket({
@@ -609,20 +610,28 @@ async function startJadibot(number, opts = {}) {
         Dinz.jadibotConfig = inst.jadibotConfig;
 
         Dinz.safeGroupMetadata = async (id) => {
-            if (groupCache.has(id)) return groupCache.get(id);
-            try {
-                const meta = await Dinz.groupMetadata(id);
-                groupCache.set(id, meta);
-                staleGroupCache.set(id, meta);
-                if (staleGroupCache.size > 500) {
-                    const oldest = staleGroupCache.keys().next().value;
-                    staleGroupCache.delete(oldest);
+            const cached = groupCache.get(id);
+            if (cached) return cached;
+            if (inflightGroupMeta.has(id)) return inflightGroupMeta.get(id);
+            const p = (async () => {
+                try {
+                    const meta = await Dinz.groupMetadata(id);
+                    groupCache.set(id, meta);
+                    staleGroupCache.set(id, meta);
+                    if (staleGroupCache.size > 500) {
+                        const oldest = staleGroupCache.keys().next().value;
+                        staleGroupCache.delete(oldest);
+                    }
+                    return meta;
+                } catch (err) {
+                    if (staleGroupCache.has(id)) return staleGroupCache.get(id);
+                    return { id, subject: 'Unknown', participants: [] };
+                } finally {
+                    inflightGroupMeta.delete(id);
                 }
-                return meta;
-            } catch (err) {
-                if (staleGroupCache.has(id)) return staleGroupCache.get(id);
-                return { id, subject: 'Unknown', participants: [] };
-            }
+            })();
+            inflightGroupMeta.set(id, p);
+            return p;
         };
         Dinz.ev.on('group-participants.update', (u) => { if (u?.id) groupCache.del(u.id); });
         Dinz.ev.on('groups.update', (updates) => {

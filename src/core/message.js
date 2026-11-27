@@ -44,6 +44,7 @@ global.lidNames = global.lidNames || {};
 
 let _lidCacheHydrated = false;
 let _lidSaveTimer = null;
+const _indexedMetadataSet = new WeakSet();
 
 const isLikelyLidNumber = (digits) => {
     const clean = String(digits || '').replace(/[^0-9]/g, '');
@@ -55,7 +56,7 @@ const hydrateLidCache = (Dinz) => {
     if (_lidCacheHydrated) return;
     _lidCacheHydrated = true;
     try {
-        const stored = botCtx.getSection('lid_cache', Dinz);
+        const stored = botCtx.getMainSection('lid_cache');
         if (stored && typeof stored === 'object') {
             if (stored.lidToPhone && typeof stored.lidToPhone === 'object') {
                 for (const [k, v] of Object.entries(stored.lidToPhone)) {
@@ -78,18 +79,21 @@ const hydrateLidCache = (Dinz) => {
     } catch (_) {}
 };
 
-const scheduleLidCacheSave = (Dinz) => {
+const scheduleLidCacheSave = () => {
     if (_lidSaveTimer) return;
     _lidSaveTimer = setTimeout(() => {
         _lidSaveTimer = null;
         try {
-            botCtx.setSection('lid_cache', {
+            // Simpan di root store saja (tidak diduplikasi ke setiap jadibot clone) dan biarkan scheduler menyinkronkannya tanpa memblokir event loop
+            const root = botCtx.getRootDb();
+            if (!root.store) root.store = {};
+            root.store.lid_cache = {
                 lidToPhone: { ...global.lidMap },
                 phoneToLid: { ...global.phoneToLidMap },
                 names: { ...global.lidNames }
-            }, Dinz);
+            };
         } catch (_) {}
-    }, 5000);
+    }, 60000);
     if (_lidSaveTimer.unref) _lidSaveTimer.unref();
 };
 
@@ -122,48 +126,88 @@ const recordLidPair = (rawLid, rawPhone, displayName = '', Dinz = null) => {
         }
     }
 
-    if (changed) scheduleLidCacheSave(Dinz);
+    if (changed) scheduleLidCacheSave();
+};
+
+const ensureMetadataIndex = (metadata, Dinz = null) => {
+    if (!metadata || typeof metadata !== 'object') return null;
+    if (_indexedMetadataSet.has(metadata) && metadata._lidIdx) {
+        return metadata._lidIdx;
+    }
+    hydrateLidCache(Dinz);
+    const phoneToLid = new Map();
+    const lidToPhone = new Map();
+
+    if (metadata.owner && metadata.ownerLid) {
+        recordLidPair(metadata.ownerLid, metadata.owner, '', Dinz);
+    }
+    if (metadata.subjectOwner && metadata.subjectOwnerLid) {
+        recordLidPair(metadata.subjectOwnerLid, metadata.subjectOwner, '', Dinz);
+    }
+    if (metadata.descOwner && metadata.descOwnerLid) {
+        recordLidPair(metadata.descOwnerLid, metadata.descOwner, '', Dinz);
+    }
+
+    const participants = metadata.participants;
+    if (Array.isArray(participants)) {
+        for (let i = 0; i < participants.length; i++) {
+            const p = participants[i];
+            if (!p || typeof p !== 'object') continue;
+            let lid = '';
+            let phone = '';
+
+            const fields = [p.id, p.jid, p.lid, p.phoneNumber];
+            for (let j = 0; j < fields.length; j++) {
+                const rawF = fields[j];
+                if (!rawF) continue;
+                const str = String(rawF);
+                const digits = str.split('@')[0].split(':')[0].replace(/[^0-9]/g, '');
+                if (!digits) continue;
+                if (str.includes('@lid')) {
+                    lid = digits;
+                } else if (str.includes('@s.whatsapp.net')) {
+                    if (!isLikelyLidNumber(digits)) phone = digits;
+                } else if (!str.includes('@') && digits.length > 5) {
+                    if (!isLikelyLidNumber(digits)) phone = digits;
+                }
+            }
+
+            if (lid && phone) {
+                phoneToLid.set(phone, `${lid}@lid`);
+                lidToPhone.set(lid, `${phone}@s.whatsapp.net`);
+            }
+            const pName = p.notify || p.name || p.verifiedName || '';
+            if ((lid && phone) || (pName && (phone || lid))) {
+                recordLidPair(lid, phone, pName, Dinz);
+            }
+        }
+    }
+
+    const idx = { phoneToLid, lidToPhone, admins: [] };
+    if (Array.isArray(participants)) {
+        for (let i = 0; i < participants.length; i++) {
+            const p = participants[i];
+            if (p && p.admin !== null && p.admin !== undefined) {
+                if (p.jid) idx.admins.push(p.jid);
+                if (p.id) idx.admins.push(p.id);
+                if (p.lid) idx.admins.push(p.lid);
+            }
+        }
+    }
+    try {
+        Object.defineProperty(metadata, '_lidIdx', { value: idx, enumerable: false, configurable: true });
+        _indexedMetadataSet.add(metadata);
+    } catch (_) {}
+    return idx;
 };
 
 const recordLidMapping = (participants, metadata, Dinz = null) => {
-    hydrateLidCache(Dinz);
-    if (metadata) {
-        if (metadata.owner && metadata.ownerLid) {
-            recordLidPair(metadata.ownerLid, metadata.owner, '', Dinz);
-        }
-        if (metadata.subjectOwner && metadata.subjectOwnerLid) {
-            recordLidPair(metadata.subjectOwnerLid, metadata.subjectOwner, '', Dinz);
-        }
-        if (metadata.descOwner && metadata.descOwnerLid) {
-            recordLidPair(metadata.descOwnerLid, metadata.descOwner, '', Dinz);
-        }
+    if (metadata && typeof metadata === 'object') {
+        ensureMetadataIndex(metadata, Dinz);
+        return;
     }
-    if (!Array.isArray(participants)) return;
-    for (const p of participants) {
-        if (!p || typeof p !== 'object') continue;
-        let lid = '';
-        let phone = '';
-
-        const fields = [p.id, p.jid, p.lid, p.phoneNumber].filter(Boolean);
-        for (const f of fields) {
-            const str = String(f);
-            if (str.includes('@lid')) {
-                lid = str.split('@')[0].split(':')[0].replace(/[^0-9]/g, '');
-            } else if (str.includes('@s.whatsapp.net')) {
-                const digits = str.split('@')[0].split(':')[0].replace(/[^0-9]/g, '');
-                if (!isLikelyLidNumber(digits)) phone = digits;
-            } else if (!str.includes('@') && str.replace(/[^0-9]/g, '').length > 5) {
-                const digits = str.split(':')[0].replace(/[^0-9]/g, '');
-                if (!isLikelyLidNumber(digits)) phone = digits;
-            }
-        }
-
-        const pName = p.notify || p.name || p.verifiedName || '';
-        if (lid && phone) {
-            recordLidPair(lid, phone, pName, Dinz);
-        } else if (pName && (phone || lid)) {
-            recordLidPair(lid, phone, pName, Dinz);
-        }
+    if (Array.isArray(participants)) {
+        ensureMetadataIndex({ participants }, Dinz);
     }
 };
 
@@ -176,20 +220,9 @@ const resolvePhoneToLid = (phoneOrJid, metadata) => {
     if (!rawNum) return '';
 
     if (metadata?.participants) {
-        recordLidMapping(metadata.participants, metadata);
-        const found = metadata.participants.find(p => {
-            const fields = [p.id, p.jid, p.lid, p.phoneNumber].filter(Boolean).map(x => String(x).split('@')[0].split(':')[0].replace(/[^0-9]/g, ''));
-            return fields.includes(rawNum);
-        });
-        if (found) {
-            for (const f of [found.lid, found.id, found.jid].filter(Boolean)) {
-                const str = String(f);
-                if (str.includes('@lid')) {
-                    const lidNum = str.split('@')[0].split(':')[0].replace(/[^0-9]/g, '');
-                    if (lidNum) return lidNum + '@lid';
-                }
-            }
-        }
+        const idx = ensureMetadataIndex(metadata);
+        const hit = idx?.phoneToLid?.get(rawNum);
+        if (hit) return hit;
     }
 
     if (global.phoneToLidMap && global.phoneToLidMap[rawNum]) {
@@ -202,32 +235,14 @@ const resolveLidToPhone = (jid, metadata) => {
     hydrateLidCache();
     if (!jid || typeof jid !== 'string') return jid;
     const cleanJid = jid.split(':')[0];
+    if (cleanJid.endsWith('@s.whatsapp.net')) return cleanJid;
     const rawNum = cleanJid.split('@')[0].replace(/[^0-9]/g, '');
     if (!rawNum) return cleanJid;
 
     if (metadata?.participants) {
-        recordLidMapping(metadata.participants, metadata);
-        const found = metadata.participants.find(p => {
-            const fields = [p.id, p.jid, p.lid, p.phoneNumber].filter(Boolean).map(x => String(x).split('@')[0].split(':')[0].replace(/[^0-9]/g, ''));
-            return fields.includes(rawNum);
-        });
-        if (found) {
-            const fields = [found.jid, found.phoneNumber, found.id, found.lid].filter(Boolean);
-            for (const f of fields) {
-                const str = String(f);
-                if (str.includes('@s.whatsapp.net')) {
-                    const num = str.split('@')[0].split(':')[0].replace(/[^0-9]/g, '');
-                    if (num && !isLikelyLidNumber(num)) return num + '@s.whatsapp.net';
-                }
-            }
-            for (const f of fields) {
-                const str = String(f);
-                if (!str.includes('@lid')) {
-                    const num = str.split('@')[0].split(':')[0].replace(/[^0-9]/g, '');
-                    if (num && !isLikelyLidNumber(num)) return num + '@s.whatsapp.net';
-                }
-            }
-        }
+        const idx = ensureMetadataIndex(metadata);
+        const hit = idx?.lidToPhone?.get(rawNum);
+        if (hit) return hit;
     }
 
     if (global.lidMap && global.lidMap[rawNum]) {
@@ -266,15 +281,11 @@ const isSenderOwner = (m, Dinz) => {
     if (checkNumber(m.chat)) return true;
 
     if (m.metadata?.participants) {
-        recordLidMapping(m.metadata.participants, m.metadata);
+        const idx = ensureMetadataIndex(m.metadata);
         const senderRaw = (m.sender || m.key?.participant || '').split(':')[0].replace(/[^0-9]/g, '');
-        const p = m.metadata.participants.find(x => {
-            const fields = [x.id, x.jid, x.lid, x.phoneNumber].filter(Boolean).map(val => String(val).split('@')[0].split(':')[0].replace(/[^0-9]/g, ''));
-            return fields.includes(senderRaw);
-        });
-        if (p) {
-            const pPhone = resolveLidToPhone(p.jid || p.id || p.phoneNumber || '', m.metadata);
-            const pNum = pPhone.split('@')[0].split(':')[0].replace(/[^0-9]/g, '');
+        const resolved = idx?.lidToPhone?.get(senderRaw);
+        if (resolved) {
+            const pNum = resolved.split('@')[0].replace(/[^0-9]/g, '');
             if (ownerNums.includes(pNum) || (botNumberOnly && pNum === botNumberOnly) || (botLid && pNum === botLid)) return true;
         }
     }
@@ -397,9 +408,10 @@ if (m.isGroup) {
 async function MessagesUpsert(Dinz, message, store) {
   const incomingList = Array.isArray(message?.messages) ? message.messages.filter(Boolean) : [];
   if (incomingList.length === 0) return;
-  for (const msg of incomingList) {
-    await processSingleUpsert(Dinz, message, msg, store);
+  if (incomingList.length === 1) {
+    return processSingleUpsert(Dinz, message, incomingList[0], store);
   }
+  await Promise.allSettled(incomingList.map((msg) => processSingleUpsert(Dinz, message, msg, store)));
 }
 
 async function processSingleUpsert(Dinz, message, msg, store) {
@@ -436,11 +448,11 @@ async function processSingleUpsert(Dinz, message, msg, store) {
     if (!msg.message) return;
 
     if (global.db.settings.autoread === true && !msg.key.fromMe) {
-      await Dinz.readMessages([msg.key]).catch(() => {});
+      Dinz.readMessages([msg.key]).catch(() => {});
     }
 
     if (global.db.settings.autotyping === true && !msg.key.fromMe) {
-      await Dinz.sendPresenceUpdate('composing', msg.key.remoteJid);
+      Dinz.sendPresenceUpdate('composing', msg.key.remoteJid).catch(() => {});
     }
 
     const m = await Serialize(Dinz, msg, store);
@@ -461,12 +473,12 @@ async function processSingleUpsert(Dinz, message, msg, store) {
                 const sewagrup = botCtx.getSection('sewagrup', Dinz);
                 const isSewa = Array.isArray(sewagrup) && sewagrup.some(v => v.jid === m.chat && v.expired > Date.now());
                 if (!isSewa) {
-                    const commandModule = require('../handlers/command');
-                    const validCommands = commandModule.validCommands || [];
+                    const pluginLoader = require('./plugins');
+                    const validCmdSet = pluginLoader.getValidCommandsSet ? pluginLoader.getValidCommandsSet() : [];
 
                     let isCmd = false;
                     if (typeof m.body === 'string' && m.body.length > 0) {
-                        const parsed = parseCommand(m.body, validCommands, global.db?.settings, false);
+                        const parsed = parseCommand(m.body, validCmdSet, global.db?.settings, false);
                         isCmd = parsed.isCmd;
                     }
 
@@ -1181,18 +1193,9 @@ async function Serialize(Dinz, msg, store) {
         }
 
         if (m.isGroup) {
-
-            const admins = []
-            if (m.metadata?.participants) {
-                for (let p of m.metadata.participants) {
-                    if (p.admin !== null) {
-                        if (p.jid) admins.push(p.jid)
-                        if (p.id) admins.push(p.id)
-                        if (p.lid) admins.push(p.lid)
-                    }
-                }
-            }
-            m.admins = admins
+            const idx = ensureMetadataIndex(m.metadata, Dinz);
+            const admins = idx?.admins || [];
+            m.admins = admins;
             const checkAdmin = (jid, list) =>
                 list.some(x => {
                     const cleanX = (x || '').split(':')[0];

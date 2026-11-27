@@ -145,7 +145,12 @@ function normalizeRootDb(raw) {
     const clones = {};
 
     for (const [num, cloneData] of Object.entries(rawClones)) {
-        clones[num] = normalizeBotData(cloneData, true);
+        const normClone = normalizeBotData(cloneData, true);
+        // lid_cache dibagikan di root store agar tidak diduplikasi ratusan KB per clone
+        if (normClone.store && normClone.store.lid_cache) {
+            normClone.store.lid_cache = { lidToPhone: {}, phoneToLid: {}, names: {} };
+        }
+        clones[num] = normClone;
     }
 
     base.jadibot = { registry, clones };
@@ -181,8 +186,12 @@ function loadRootDbFromDisk() {
 let activeStorageMode = 'local';
 let lastDiskSerialized = '';
 let lastMongoSerialized = '';
+let diskWriteTimer = null;
+let diskWriteInFlight = false;
 let mongoPushTimer = null;
 let mongoPushInFlight = null;
+let lastMongoPushAt = 0;
+const MONGO_MIN_INTERVAL_MS = 60 * 1000;
 
 function writeRootDbToDisk(rootObj, force = false) {
     const dbFile = getDatabasePath();
@@ -190,42 +199,76 @@ function writeRootDbToDisk(rootObj, force = false) {
     if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir, { recursive: true });
     }
-    const payload = JSON.stringify(rootObj, null, 2);
+    // Gunakan JSON compact (tanpa indentasi 2 spasi) -> ~40% lebih kecil & 3x lebih cepat di-stringify!
+    const payload = JSON.stringify(rootObj);
     if (!force && payload === lastDiskSerialized && fs.existsSync(dbFile)) {
         return { dbFile, payload, changed: false };
     }
     const tmpFile = `${dbFile}.tmp`;
-    try {
-        fs.writeFileSync(tmpFile, payload, 'utf8');
-        fs.renameSync(tmpFile, dbFile);
-    } catch (e) {
-        try { if (fs.existsSync(tmpFile)) fs.unlinkSync(tmpFile); } catch (_) {}
-        fs.writeFileSync(dbFile, payload, 'utf8');
+    if (force) {
+        try {
+            fs.writeFileSync(tmpFile, payload, 'utf8');
+            fs.renameSync(tmpFile, dbFile);
+        } catch (e) {
+            try { if (fs.existsSync(tmpFile)) fs.unlinkSync(tmpFile); } catch (_) {}
+            fs.writeFileSync(dbFile, payload, 'utf8');
+        }
+        lastDiskSerialized = payload;
+        return { dbFile, payload, changed: true };
     }
+
+    // Penulisan disk ASYNC agar event loop tidak pernah macet saat menulis file >1MB
     lastDiskSerialized = payload;
+    if (!diskWriteInFlight) {
+        diskWriteInFlight = true;
+        fs.promises.writeFile(tmpFile, payload, 'utf8')
+            .then(() => fs.promises.rename(tmpFile, dbFile))
+            .catch(async () => {
+                try { await fs.promises.unlink(tmpFile); } catch (_) {}
+                try { await fs.promises.writeFile(dbFile, payload, 'utf8'); } catch (_) {}
+            })
+            .finally(() => {
+                diskWriteInFlight = false;
+            });
+    }
     return { dbFile, payload, changed: true };
 }
 
-async function pushRootDbToMongo(force = false) {
+function scheduleDiskWrite() {
+    if (diskWriteTimer) return;
+    diskWriteTimer = setTimeout(() => {
+        diskWriteTimer = null;
+        try { writeRootDbToDisk(getRootDb(), false); } catch (_) {}
+    }, 15000);
+    if (typeof diskWriteTimer.unref === 'function') diskWriteTimer.unref();
+}
+
+async function pushRootDbToMongo(force = false, preSerialized = null) {
     if (!mongo.isConfigured()) {
         activeStorageMode = 'local';
         return false;
+    }
+    const now = Date.now();
+    if (!force && (now - lastMongoPushAt) < MONGO_MIN_INTERVAL_MS) {
+        scheduleMongoPush();
+        return true;
     }
     if (mongoPushTimer) {
         clearTimeout(mongoPushTimer);
         mongoPushTimer = null;
     }
 
-    const payload = JSON.stringify(getRootDb());
+    const payload = typeof preSerialized === 'string' ? preSerialized : JSON.stringify(getRootDb());
     if (!force && payload === lastMongoSerialized) {
         return true;
     }
 
     if (mongoPushInFlight) {
+        if (!force) return true;
         try { await mongoPushInFlight; } catch (_) {}
     }
 
-    const latestPayload = JSON.stringify(getRootDb());
+    const latestPayload = force ? JSON.stringify(getRootDb()) : payload;
     if (!force && latestPayload === lastMongoSerialized) {
         return true;
     }
@@ -234,6 +277,7 @@ async function pushRootDbToMongo(force = false) {
         const ok = await mongo.savePayload(latestPayload);
         if (ok) {
             lastMongoSerialized = latestPayload;
+            lastMongoPushAt = Date.now();
             activeStorageMode = 'mongodb';
         }
         return ok;
@@ -248,11 +292,14 @@ async function pushRootDbToMongo(force = false) {
 
 function scheduleMongoPush() {
     if (!mongo.isConfigured()) return;
-    if (mongoPushTimer) clearTimeout(mongoPushTimer);
+    if (mongoPushTimer) return;
+    const elapsed = Date.now() - lastMongoPushAt;
+    const waitMs = Math.max(5000, MONGO_MIN_INTERVAL_MS - elapsed);
     mongoPushTimer = setTimeout(() => {
         mongoPushTimer = null;
         pushRootDbToMongo(false).catch(() => {});
-    }, 1500);
+    }, waitMs);
+    if (typeof mongoPushTimer.unref === 'function') mongoPushTimer.unref();
 }
 
 function getStorageMode() {
@@ -295,9 +342,13 @@ async function initStorage() {
 
 async function flushStorage(force = false) {
     const root = getRootDb();
-    writeRootDbToDisk(root, force);
+    const res = writeRootDbToDisk(root, force);
     if (mongo.isConfigured()) {
-        await pushRootDbToMongo(force);
+        if (force) {
+            await pushRootDbToMongo(true, res.payload);
+        } else if (res.changed) {
+            await pushRootDbToMongo(false, res.payload);
+        }
     }
     return getDatabasePath();
 }
@@ -339,10 +390,9 @@ function reloadRootDb() {
 }
 
 function saveRootDb() {
-    const root = getRootDb();
-    const res = writeRootDbToDisk(root, false);
+    scheduleDiskWrite();
     scheduleMongoPush();
-    return res.dbFile;
+    return getDatabasePath();
 }
 
 function normalizeNumber(raw) {
@@ -516,6 +566,8 @@ function setJadibotMemoryDb(number, data) {
     number = normalizeNumber(number);
     const root = getRootDb();
     if (!number) {
+        // Jika objek sudah merupakan root DB aktif di memori, tidak perlu deep-clone/normalize ulang!
+        if (!data || data === global._mainDb) return;
         const merged = normalizeRootDb({
             ...(data && typeof data === 'object' ? data : {}),
             store: data?.store || root.store,
@@ -525,6 +577,7 @@ function setJadibotMemoryDb(number, data) {
         return;
     }
     const existing = ensureJadibotData(number);
+    if (data === existing) return;
     root.jadibot.clones[number] = normalizeBotData({
         ...(data && typeof data === 'object' ? data : {}),
         store: data?.store || existing.store

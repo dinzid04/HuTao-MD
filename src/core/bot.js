@@ -664,7 +664,7 @@ async function _startBotInner() {
         logger: pino().child({ level: 'silent', stream: 'store' })
     });
     const sentMessageCache = new NodeCache({ stdTTL: 1800, checkperiod: 180, maxKeys: 1500, useClones: false });
-    const msgRetryCounterCache = new NodeCache({ stdTTL: 600, checkperiod: 120 });
+    const msgRetryCounterCache = new NodeCache({ stdTTL: 600, checkperiod: 120, useClones: false });
     const userDevicesCache = new NodeCache({ stdTTL: 600, checkperiod: 120, useClones: false });
     const { version } = await fetchLatestBaileysVersion();
 
@@ -734,26 +734,35 @@ async function _startBotInner() {
         }, 2000);
     };
 
-    const groupCache = new NodeCache({ stdTTL: 300, checkperiod: 120 });
+    const groupCache = new NodeCache({ stdTTL: 300, checkperiod: 120, useClones: false });
     const staleGroupCache = new Map();
+    const inflightGroupMeta = new Map();
     sock.safeGroupMetadata = async (jid) => {
-        if (groupCache.has(jid)) return groupCache.get(jid);
-        try {
-            const metadata = await sock.groupMetadata(jid);
-            groupCache.set(jid, metadata);
-            staleGroupCache.set(jid, metadata);
-            if (staleGroupCache.size > 500) {
-                const oldest = staleGroupCache.keys().next().value;
-                staleGroupCache.delete(oldest);
+        const cached = groupCache.get(jid);
+        if (cached) return cached;
+        if (inflightGroupMeta.has(jid)) return inflightGroupMeta.get(jid);
+        const p = (async () => {
+            try {
+                const metadata = await sock.groupMetadata(jid);
+                groupCache.set(jid, metadata);
+                staleGroupCache.set(jid, metadata);
+                if (staleGroupCache.size > 500) {
+                    const oldest = staleGroupCache.keys().next().value;
+                    staleGroupCache.delete(oldest);
+                }
+                return metadata;
+            } catch (err) {
+                if (staleGroupCache.has(jid)) {
+                    return staleGroupCache.get(jid);
+                }
+                console.error(chalk.yellow('[Group Metadata Error]'), err.message);
+                return { id: jid, subject: 'Unknown', participants: [] };
+            } finally {
+                inflightGroupMeta.delete(jid);
             }
-            return metadata;
-        } catch (err) {
-            if (staleGroupCache.has(jid)) {
-                return staleGroupCache.get(jid);
-            }
-            console.error(chalk.yellow('[Group Metadata Error]'), err.message);
-            return { id: jid, subject: 'Unknown', participants: [] };
-        }
+        })();
+        inflightGroupMeta.set(jid, p);
+        return p;
     };
     sock.ev.on('group-participants.update', (u) => { if (u?.id) groupCache.del(u.id); });
     sock.ev.on('groups.update', (updates) => {
@@ -917,6 +926,21 @@ async function _startBotInner() {
     });
 
     await store.bind(sock.ev);
+    // Prune store.messages setiap 10 menit agar RAM tidak membengkak & GC tetap ringan
+    if (global._mainStorePruneTimer) clearInterval(global._mainStorePruneTimer);
+    global._mainStorePruneTimer = setInterval(() => {
+        try {
+            if (!store?.messages) return;
+            for (const jid of Object.keys(store.messages)) {
+                const dict = store.messages[jid];
+                if (dict?.array && dict.array.length > 150) {
+                    dict.array.splice(0, dict.array.length - 150);
+                }
+            }
+        } catch (_) {}
+    }, 10 * 60 * 1000);
+    if (typeof global._mainStorePruneTimer.unref === 'function') global._mainStorePruneTimer.unref();
+
     await Solving(sock, store);
     global.socket = sock;
 
