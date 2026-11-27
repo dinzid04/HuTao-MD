@@ -10,19 +10,28 @@ function cleaningSession(sessionDir = './session', label = 'Main') {
         const files = fs.readdirSync(sessionDir);
         const now = Date.now();
         const appStateMaxAgeMs = 2 * 60 * 60 * 1000;
-        const senderKeyMaxAgeMs = 24 * 60 * 60 * 1000;
+        const senderKeyMemMaxAgeMs = 12 * 60 * 60 * 1000;
+        const maxSessionBytes = 32 * 1024;
+        const maxSenderKeyBytes = 64 * 1024;
 
         for (const file of files) {
-            if (file === 'creds.json' || file.toLowerCase().includes('creds')) continue;
+            if (
+                file === 'creds.json' ||
+                file.toLowerCase().includes('creds') ||
+                file.startsWith('pre-key-') ||
+                file.startsWith('app-state-sync-key-')
+            ) continue;
             const filePath = path.join(sessionDir, file);
             try {
                 const stats = fs.statSync(filePath);
                 if (!stats.isFile()) continue;
                 const age = now - stats.mtimeMs;
-                const isOldAppState = file.startsWith('app-state-sync-') && age > appStateMaxAgeMs;
-                const isOldSenderMem = file.startsWith('sender-key-memory-') && age > senderKeyMaxAgeMs;
+                const isOldAppState = file.startsWith('app-state-sync-version-') && age > appStateMaxAgeMs;
+                const isOldSenderMem = file.startsWith('sender-key-memory-') && age > senderKeyMemMaxAgeMs;
+                const isBloatedSession = file.startsWith('session-') && stats.size > maxSessionBytes;
+                const isBloatedSenderKey = file.startsWith('sender-key-') && !file.startsWith('sender-key-memory-') && stats.size > maxSenderKeyBytes;
                 const isTempJunk = (file.endsWith('.tmp') || file.endsWith('.bak')) && age > 30 * 60 * 1000;
-                if (isOldAppState || isOldSenderMem || isTempJunk) {
+                if (isOldAppState || isOldSenderMem || isBloatedSession || isBloatedSenderKey || isTempJunk) {
                     fs.unlinkSync(filePath);
                     count++;
                 }

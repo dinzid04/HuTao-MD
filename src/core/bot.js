@@ -515,12 +515,24 @@ function wrapQueuedSendMessage(sock, sentMessageCache) {
             return new Promise(async (resolve) => {
                 try {
                     let sent = null;
+                    const trySendWithTransientRetry = async (opts) => {
+                        try {
+                            return await originalSendMessage(targetJid, safeContent, opts);
+                        } catch (e) {
+                            const msgStr = String(e?.message || e || '');
+                            if (/rate-overlimit|timed out|timeout|429/i.test(msgStr)) {
+                                await delay(1500);
+                                return await originalSendMessage(targetJid, safeContent, opts);
+                            }
+                            throw e;
+                        }
+                    };
                     try {
-                        sent = await originalSendMessage(targetJid, safeContent, options);
+                        sent = await trySendWithTransientRetry(options);
                     } catch (firstErr) {
                         if (options && options.quoted) {
                             const { quoted, ...restOpts } = options;
-                            sent = await originalSendMessage(targetJid, safeContent, restOpts);
+                            sent = await trySendWithTransientRetry(restOpts);
                         } else {
                             throw firstErr;
                         }
@@ -723,17 +735,30 @@ async function _startBotInner() {
     };
 
     const groupCache = new NodeCache({ stdTTL: 300, checkperiod: 120 });
+    const staleGroupCache = new Map();
     sock.safeGroupMetadata = async (jid) => {
         if (groupCache.has(jid)) return groupCache.get(jid);
         try {
             const metadata = await sock.groupMetadata(jid);
             groupCache.set(jid, metadata);
+            staleGroupCache.set(jid, metadata);
+            if (staleGroupCache.size > 500) {
+                const oldest = staleGroupCache.keys().next().value;
+                staleGroupCache.delete(oldest);
+            }
             return metadata;
         } catch (err) {
+            if (staleGroupCache.has(jid)) {
+                return staleGroupCache.get(jid);
+            }
             console.error(chalk.yellow('[Group Metadata Error]'), err.message);
             return { id: jid, subject: 'Unknown', participants: [] };
         }
     };
+    sock.ev.on('group-participants.update', (u) => { if (u?.id) groupCache.del(u.id); });
+    sock.ev.on('groups.update', (updates) => {
+        if (Array.isArray(updates)) updates.forEach((u) => { if (u?.id) groupCache.del(u.id); });
+    });
 
     if (!isRegistered && loginMethod === '1' && verifiedNumber) {
         setTimeout(async () => {

@@ -575,8 +575,10 @@ async function startJadibot(number, opts = {}) {
         });
 
         const groupCache = new NodeCache({ stdTTL: 300, checkperiod: 120 });
+        const staleGroupCache = new Map();
         const sentMessageCache = new NodeCache({ stdTTL: 1800, checkperiod: 180, maxKeys: 1000, useClones: false });
         const msgRetryCounterCache = new NodeCache({ stdTTL: 600, checkperiod: 120 });
+        const userDevicesCache = new NodeCache({ stdTTL: 600, checkperiod: 120, useClones: false });
 
         const Dinz = makeWASocket({
             version,
@@ -584,8 +586,9 @@ async function startJadibot(number, opts = {}) {
             logger: pino({ level: 'silent' }),
             auth: state,
             browser: ['Ubuntu', 'Chrome', '22.04.2'],
-            generateHighQualityLinkPreview: true,
+            generateHighQualityLinkPreview: false,
             msgRetryCounterCache,
+            userDevicesCache,
             getMessage: async (key) => {
                 try {
                     if (!key || !key.id) return undefined;
@@ -610,11 +613,21 @@ async function startJadibot(number, opts = {}) {
             try {
                 const meta = await Dinz.groupMetadata(id);
                 groupCache.set(id, meta);
+                staleGroupCache.set(id, meta);
+                if (staleGroupCache.size > 500) {
+                    const oldest = staleGroupCache.keys().next().value;
+                    staleGroupCache.delete(oldest);
+                }
                 return meta;
             } catch (err) {
+                if (staleGroupCache.has(id)) return staleGroupCache.get(id);
                 return { id, subject: 'Unknown', participants: [] };
             }
         };
+        Dinz.ev.on('group-participants.update', (u) => { if (u?.id) groupCache.del(u.id); });
+        Dinz.ev.on('groups.update', (updates) => {
+            if (Array.isArray(updates)) updates.forEach((u) => { if (u?.id) groupCache.del(u.id); });
+        });
 
         Dinz.ev.on('creds.update', saveCreds);
 
@@ -951,7 +964,29 @@ async function startJadibot(number, opts = {}) {
 
             userQueues[jid] = userQueues[jid].then(() => new Promise(async (resolve) => {
                 try {
-                    const result = await oriSend(jid, safeContent, options);
+                    const trySendWithTransientRetry = async (opts) => {
+                        try {
+                            return await oriSend(jid, safeContent, opts);
+                        } catch (e) {
+                            const msgStr = String(e?.message || e || '');
+                            if (/rate-overlimit|timed out|timeout|429/i.test(msgStr)) {
+                                await delay(1500);
+                                return await oriSend(jid, safeContent, opts);
+                            }
+                            throw e;
+                        }
+                    };
+                    let result = null;
+                    try {
+                        result = await trySendWithTransientRetry(options);
+                    } catch (firstErr) {
+                        if (options && options.quoted) {
+                            const { quoted, ...restOpts } = options;
+                            result = await trySendWithTransientRetry(restOpts);
+                        } else {
+                            throw firstErr;
+                        }
+                    }
                     if (result && result.key && result.key.id) {
                         if (result.message) sentMessageCache.set(result.key.id, result.message);
                         global.sentKeys = global.sentKeys || new Set();
