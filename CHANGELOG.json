@@ -1,16 +1,18 @@
 {
-  "version": "1.2.1",
+  "version": "1.2.2",
   "updatedAt": "2026-11-27",
-  "summary": "Optimasi Performa Anti-Delay: Perbaikan CPU 70-120% -> <5%, eliminasi freeze writeFileSync & banjir MongoDB Atlas, dan cache O(1) grup besar",
+  "summary": "Perbaikan Permanen Enkripsi E2EE & Retry Receipt ('Menunggu pesan ini...') di WA Business & Grup",
   "added": [],
   "fixed": [
-    "Perbaikan bug fatal NodeCache groupCache (useClones: false) di Bot Utama & Jadibot yang sebelumnya melakukan deep-clone 400+ peserta grup di setiap pesan chat",
-    "Optimasi recordLidMapping, resolveLidToPhone, resolvePhoneToLid, dan daftar admin grup menjadi O(1) dengan WeakSet + Map index (sebelumnya O(N²) berulang 4-5x per pesan grup)",
-    "Penulisan data/database.json diubah menjadi async non-blocking compact JSON + throttle sinkronisasi MongoDB Atlas menjadi tiap 60 detik (mengurangi trafik upload hingga 90% dan menghilangkan freeze event loop)",
-    "Hapus duplikasi lid_cache ratusan KB di setiap clone Jadibot & gunakan pre-cached Set untuk parsing 1.860 command tanpa alokasi ulang tiap pesan",
-    "Pemrosesan batch messages.upsert paralel, autoread/autotyping non-blocking, serta pemangkasan rutin store.messages agar RAM tetap ringan"
+    "Perbaikan fatal Auto Cleaner sesi (src/core/session.js) yang sebelumnya menghapus file session-* >32KB dan sender-key-* >64KB tiap 1 jam tanpa mereset sender-key-memory — penyebab utama munculnya 'Menunggu pesan ini' di grup ramai & WA Business",
+    "Implementasi protokol retry resend resmi Baileys v7 (isRetryResend): mengirim atribut count, device-identity, serta menyisipkan senderKeyDistributionMessage (SKDM) langsung di enkripsi pairwise saat perangkat WA Business / anggota grup meminta retry",
+    "Perbaikan addressing_mode='lid' & identitas meLid pada pengiriman grup LID modern + proteksi otomatis reset sender-key-memory jika sender-key bot belum ada agar tidak pernah mengirim skmsg tanpa SKDM",
+    "Ekstraksi & injeksi langsung PreKey bundle (<keys>) dan pengecekan <registration> ID mismatch dari receipt retry + reset otomatis sesi saat notifikasi identity changed (ganti HP / WA Business)",
+    "Perbaikan handleReceipt untuk WA Business & LID agar retry tidak lagi ditolak sebagai 'not fromMe', serta penghentian wipe sender-key-memory massal pada grup besar",
+    "Chunking batch untuk assertSessions (50 JID/batch) & getUSyncDevices (100 JID/batch) serta filter device 99 agar pengiriman ke grup ratusan member tidak timeout/putus di tengah jalan",
+    "Peningkatan cache pesan terkirim (TTL 6 jam, max 3000+3500 pre-send hook sebelum sendNode) di Bot Utama & Jadibot sehingga retry WA Business selalu menemukan pesan asli secara instan"
   ],
   "changed": [
-    "Respon command di panel menjadi jauh lebih cepat dan stabil walau bot aktif di banyak grup ramai sekaligus bersama Jadibot"
+    "Pengiriman & dekripsi pesan di WhatsApp Business dan Grup (termasuk grup LID besar) kini jauh lebih stabil dan cepat pulih jika terjadi retry enkripsi"
   ]
 }

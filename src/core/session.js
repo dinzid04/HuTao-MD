@@ -9,17 +9,16 @@ function cleaningSession(sessionDir = './session', label = 'Main') {
     try {
         const files = fs.readdirSync(sessionDir);
         const now = Date.now();
-        const appStateMaxAgeMs = 2 * 60 * 60 * 1000;
-        const senderKeyMemMaxAgeMs = 12 * 60 * 60 * 1000;
-        const maxSessionBytes = 32 * 1024;
-        const maxSenderKeyBytes = 64 * 1024;
+        const appStateMaxAgeMs = 24 * 60 * 60 * 1000;
+        const abandonedSessionMaxAgeMs = 30 * 24 * 60 * 60 * 1000;
 
         for (const file of files) {
             if (
                 file === 'creds.json' ||
                 file.toLowerCase().includes('creds') ||
                 file.startsWith('pre-key-') ||
-                file.startsWith('app-state-sync-key-')
+                file.startsWith('app-state-sync-key-') ||
+                file.startsWith('sender-key-')
             ) continue;
             const filePath = path.join(sessionDir, file);
             try {
@@ -27,11 +26,11 @@ function cleaningSession(sessionDir = './session', label = 'Main') {
                 if (!stats.isFile()) continue;
                 const age = now - stats.mtimeMs;
                 const isOldAppState = file.startsWith('app-state-sync-version-') && age > appStateMaxAgeMs;
-                const isOldSenderMem = file.startsWith('sender-key-memory-') && age > senderKeyMemMaxAgeMs;
-                const isBloatedSession = file.startsWith('session-') && stats.size > maxSessionBytes;
-                const isBloatedSenderKey = file.startsWith('sender-key-') && !file.startsWith('sender-key-memory-') && stats.size > maxSenderKeyBytes;
+                // Jangan hapus session aktif berdasarkan ukuran (chat aktif/WA Business mudah >32KB).
+                // Hanya bersihkan file session yang benar-benar tidak tersentuh > 30 hari.
+                const isAbandonedSession = file.startsWith('session-') && age > abandonedSessionMaxAgeMs;
                 const isTempJunk = (file.endsWith('.tmp') || file.endsWith('.bak')) && age > 30 * 60 * 1000;
-                if (isOldAppState || isOldSenderMem || isBloatedSession || isBloatedSenderKey || isTempJunk) {
+                if (isOldAppState || isAbandonedSession || isTempJunk) {
                     fs.unlinkSync(filePath);
                     count++;
                 }

@@ -185,6 +185,7 @@ const extractDeviceJids = (result, myJid, excludeZeroDevices, myLid) => {
         const libsignalFile = path.join(baileysRoot, 'Signal', 'libsignal.js');
         if (fs.existsSync(libsignalFile)) {
             let lsSrc = fs.readFileSync(libsignalFile, 'utf8');
+            let lsChanged = false;
             if (!lsSrc.includes('patch-bad-mac-heal')) {
                 const lsRe = /const storage = signalStorage\(auth\);\s*return \{\s*decryptGroupMessage\(\{ group, authorJid, msg \}\) \{[\s\S]*?return result;\s*\},/;
                 if (lsRe.test(lsSrc)) {
@@ -259,8 +260,56 @@ const extractDeviceJids = (result, myJid, excludeZeroDevices, myLid) => {
             }
         },`
                     );
-                    fs.writeFileSync(libsignalFile, lsSrc, 'utf8');
+                    lsChanged = true;
                 }
+            }
+            if (!lsSrc.includes('patch-signal-retry-helpers')) {
+                const jidAddrMethodRe = /jidToSignalProtocolAddress\(jid\)\s*\{\s*return jidToSignalProtocolAddress\(jid\)\.toString\(\);\s*\}/;
+                if (jidAddrMethodRe.test(lsSrc)) {
+                    lsSrc = lsSrc.replace(
+                        jidAddrMethodRe,
+                        `// [patch-signal-retry-helpers]
+        async hasSenderKey({ group, meId }) {
+            const senderName = jidToSignalSenderKeyName(group, meId);
+            const senderNameStr = senderName.toString();
+            const { [senderNameStr]: senderKey } = await auth.keys.get('sender-key', [senderNameStr]);
+            return Boolean(senderKey);
+        },
+        async getSenderKeyDistributionMessage({ group, meId }) {
+            const senderName = jidToSignalSenderKeyName(group, meId);
+            const builder = new Group_1.GroupSessionBuilder(storage);
+            const senderNameStr = senderName.toString();
+            const { [senderNameStr]: senderKey } = await auth.keys.get('sender-key', [senderNameStr]);
+            if (!senderKey) {
+                await storage.storeSenderKey(senderName, new sender_key_record_1.SenderKeyRecord());
+            }
+            const skdm = await builder.create(senderName);
+            return skdm.serialize();
+        },
+        async getSessionInfo(jid) {
+            try {
+                const addr = jidToSignalProtocolAddress(jid);
+                const record = await storage.loadSession(addr.toString());
+                if (!record || typeof record.getOpenSession !== 'function') return null;
+                const open = record.getOpenSession();
+                if (!open) return null;
+                return {
+                    registrationId: open.registrationId || 0,
+                    baseKey: open.indexInfo?.baseKey || null
+                };
+            } catch (_) {
+                return null;
+            }
+        },
+        jidToSignalProtocolAddress(jid) {
+            return jidToSignalProtocolAddress(jid).toString();
+        }`
+                    );
+                    lsChanged = true;
+                }
+            }
+            if (lsChanged) {
+                fs.writeFileSync(libsignalFile, lsSrc, 'utf8');
             }
         }
 
@@ -292,24 +341,85 @@ const extractDeviceJids = (result, myJid, excludeZeroDevices, myLid) => {
                     sendChanged = true;
                 }
             }
-            if (!src.includes('patch-usync-clean')) {
-                const usyncBlockRe = /const extracted = Utils_1\.extractDeviceJids\(result\?\.list, authState\.creds\.me\.id, ignoreZeroDevices\)\r?\n\s*const deviceMap = \{\}(?:\r?\n\s*for \(const _fj of toFetch\) \{ const _fu = WABinary_1\.jidDecode\(_fj\)\?\.user; if \(_fu\) deviceMap\[_fu\] = \[\]; \})*\r?\n\s*for \(const item of extracted\) \{\r?\n\s*deviceMap\[item\.user\] = deviceMap\[item\.user\] \|\| \[\]\r?\n\s*deviceMap\[item\.user\]\.push\(item\)\r?\n\s*deviceResults\.push\(item\)\r?\n\s*\}\r?\n\s*for \(const key in deviceMap\) \{\r?\n\s*userDevicesCache\.set\(key, deviceMap\[key\]\)\r?\n\s*\}/;
-                if (usyncBlockRe.test(src)) {
+            if (!src.includes('patch-usync-chunked')) {
+                const usyncExecRe = /const query = new WAUSync_1\.USyncQuery\(\)[\s\S]*?return deviceResults/;
+                if (usyncExecRe.test(src)) {
                     src = src.replace(
-                        usyncBlockRe,
-                        `// [patch-usync-clean]
-            const extracted = Utils_1.extractDeviceJids(result?.list, authState.creds.me.id, ignoreZeroDevices, authState.creds.me?.lid);
-            const deviceMap = {};
-            for (const item of extracted) {
-                deviceMap[item.user] = deviceMap[item.user] || [];
-                deviceMap[item.user].push(item);
-                deviceResults.push(item);
-            }
-            for (const key in deviceMap) {
-                if (deviceMap[key] && deviceMap[key].length > 0) {
-                    userDevicesCache.set(key, deviceMap[key]);
+                        usyncExecRe,
+                        `// [patch-usync-chunked]
+        const _usyncChunkSize = 100;
+        for (let _ui = 0; _ui < toFetch.length; _ui += _usyncChunkSize) {
+            const _chunk = toFetch.slice(_ui, _ui + _usyncChunkSize);
+            try {
+                const query = new WAUSync_1.USyncQuery()
+                    .withContext('message')
+                    .withDeviceProtocol();
+                for (const jid of _chunk) {
+                    query.withUser(new WAUSync_1.USyncUser().withId(jid));
                 }
-            }`
+                const result = await executeUSyncQuery(query);
+                if (result) {
+                    const extracted = Utils_1.extractDeviceJids(result?.list, authState.creds.me.id, ignoreZeroDevices, authState.creds.me?.lid);
+                    const deviceMap = {};
+                    for (const item of extracted) {
+                        if (item.device === 99) continue;
+                        deviceMap[item.user] = deviceMap[item.user] || [];
+                        deviceMap[item.user].push(item);
+                        deviceResults.push(item);
+                    }
+                    for (const key in deviceMap) {
+                        if (deviceMap[key] && deviceMap[key].length > 0) {
+                            userDevicesCache.set(key, deviceMap[key]);
+                        }
+                    }
+                }
+            } catch (usyncErr) {
+                logger.warn({ err: usyncErr?.message, count: _chunk.length }, 'usync chunk failed');
+            }
+        }
+        return deviceResults`
+                    );
+                    sendChanged = true;
+                }
+            }
+            if (!src.includes('patch-assert-sessions-chunked')) {
+                const assertFetchRe = /if \(jidsRequiringFetch\.length\) \{\s*logger\.debug\(\{ jidsRequiringFetch \}, 'fetching sessions'\);\s*const result = await query\(\{[\s\S]*?didFetchNewSession = true;\s*\}/;
+                if (assertFetchRe.test(src)) {
+                    src = src.replace(
+                        assertFetchRe,
+                        `// [patch-assert-sessions-chunked]
+        if (jidsRequiringFetch.length) {
+            const _uniqueJids = Array.from(new Set(jidsRequiringFetch));
+            logger.debug({ count: _uniqueJids.length }, 'fetching sessions');
+            const _sessChunkSize = 50;
+            for (let _si = 0; _si < _uniqueJids.length; _si += _sessChunkSize) {
+                const _batch = _uniqueJids.slice(_si, _si + _sessChunkSize);
+                try {
+                    const result = await query({
+                        tag: 'iq',
+                        attrs: {
+                            xmlns: 'encrypt',
+                            type: 'get',
+                            to: WABinary_1.S_WHATSAPP_NET,
+                        },
+                        content: [
+                            {
+                                tag: 'key',
+                                attrs: {},
+                                content: _batch.map(jid => ({
+                                    tag: 'user',
+                                    attrs: { jid },
+                                }))
+                            }
+                        ]
+                    });
+                    await (0, Utils_1.parseAndInjectE2ESessions)(result, signalRepository);
+                    didFetchNewSession = true;
+                } catch (sessErr) {
+                    logger.warn({ err: sessErr?.message, batchSize: _batch.length }, 'assertSessions batch failed');
+                }
+            }
+        }`
                     );
                     sendChanged = true;
                 }
@@ -356,30 +466,365 @@ const extractDeviceJids = (result, myJid, excludeZeroDevices, myLid) => {
                     sendChanged = true;
                 }
             }
-            if (!src.includes('patch-skm-preserve')) {
-                const pDecRe = /const \{ user, device \} = WABinary_1\.jidDecode\(participant\.jid\);\s*devices\.push\(\{ user, device \}\);/;
-                if (pDecRe.test(src)) {
+            if (!src.includes('patch-relay-e2ee-v2')) {
+                const relayCoreRe = /const meId = authState\.creds\.me\.id;[\s\S]*?await sendNode\(stanza\);\s*\}\);/;
+                if (relayCoreRe.test(src)) {
                     src = src.replace(
-                        pDecRe,
-                        `const { user, device, server: pServer } = WABinary_1.jidDecode(participant.jid);\n            devices.push({ user, device, server: pServer });`
-                    );
-                    sendChanged = true;
+                        relayCoreRe,
+                        `// [patch-relay-e2ee-v2]
+        const meId = authState.creds.me.id;
+        const meLid = authState.creds.me?.lid;
+        const isRetryResend = Boolean(participant && participant.jid);
+        let shouldIncludeDeviceIdentity = isRetryResend;
+        let didPushAdditional = false;
+        const { user, server } = WABinary_1.jidDecode(jid);
+        const statusJid = 'status@broadcast';
+        const isGroup = server === 'g.us';
+        const isStatus = jid === statusJid;
+        const isLid = server === 'lid';
+        const isPrivate = server === 's.whatsapp.net';
+        const isNewsletter = server === 'newsletter';
+        msgId = msgId || (0, Utils_1.generateMessageID)();
+        useUserDevicesCache = useUserDevicesCache !== false;
+        useCachedGroupMetadata = useCachedGroupMetadata !== false && !isStatus;
+        const participants = [];
+        const destinationJid = (!isStatus) ? WABinary_1.jidEncode(user, isLid ? 'lid' : isGroup ? 'g.us' : isNewsletter ? 'newsletter' : 's.whatsapp.net') : statusJid;
+        const binaryNodeContent = [];
+        const devices = [];
+        const meMsg = {
+            deviceSentMessage: {
+                destinationJid,
+                message
+            }
+        };
+        const extraAttrs = {};
+        const messages = Utils_1.normalizeMessageContent(message);
+        const buttonType = getButtonType(messages);
+        if (participant) {
+            if (!isGroup && !isStatus) {
+                additionalAttributes = { ...additionalAttributes, 'device_fanout': 'false' };
+            }
+            const { user: pUser, device: pDevice, server: pServer } = WABinary_1.jidDecode(participant.jid);
+            devices.push({ user: pUser, device: pDevice, server: pServer });
+        }
+        await authState.keys.transaction(async () => {
+            // [patch-chat-theme] code founded by - @DanuZz
+            const isChatTheme = (messages?.protocolMessage?.type === 34 || message?.protocolMessage?.type === 34);
+            const mediaType = isChatTheme ? 'chat_theme' : getMediaType(messages);
+            if (mediaType) {
+                extraAttrs['mediatype'] = mediaType;
+            }
+            if (messages.pinInChatMessage || messages.keepInChatMessage || message.reactionMessage || message.protocolMessage?.editedMessage) {
+                extraAttrs['decrypt-fail'] = 'hide';
+            }
+            if (messages.interactiveResponseMessage?.nativeFlowResponseMessage) {
+                extraAttrs['native_flow_name'] = messages.interactiveResponseMessage?.nativeFlowResponseMessage.name;
+            }
+            if ((isGroup || isStatus) && !isRetryResend) {
+                const [groupData, senderKeyMap] = await Promise.all([
+                    (async () => {
+                        let groupData = useCachedGroupMetadata && cachedGroupMetadata ? await cachedGroupMetadata(jid) : undefined;
+                        if (groupData) {
+                            logger.trace({ jid, participants: groupData.participants.length }, 'using cached group metadata');
+                        }
+                        else if (!isStatus) {
+                            groupData = await groupMetadata(jid);
+                        }
+                        return groupData;
+                    })(),
+                    (async () => {
+                        if (!participant && !isStatus) {
+                            const result = await authState.keys.get('sender-key-memory', [jid]);
+                            return result[jid] || {};
+                        }
+                        return {};
+                    })()
+                ]);
+                const participantsList = (groupData && !isStatus) ? groupData.participants.map(p => p.id) : [];
+                if (isStatus && statusJidList) {
+                    participantsList.push(...statusJidList);
                 }
-                const skLoopRe = /for \(const \{ user, device \} of devices\) \{\s*const jid = WABinary_1\.jidEncode\(user, \(groupData === null \|\| groupData === void 0 \? void 0 : groupData\.addressingMode\) === 'lid' \? 'lid' : 's\.whatsapp\.net', device\);/;
-                if (skLoopRe.test(src)) {
-                    src = src.replace(
-                        skLoopRe,
-                        `// [patch-skm-preserve]
-                for (const { user, device, server: devServer } of devices) {
-                    const jid = WABinary_1.jidEncode(user, devServer || ((groupData === null || groupData === void 0 ? void 0 : groupData.addressingMode) === 'lid' ? 'lid' : 's.whatsapp.net'), device);`
-                    );
-                    sendChanged = true;
+                const additionalDevices = await getUSyncDevices(participantsList, !!useUserDevicesCache, false);
+                devices.push(...additionalDevices);
+                const groupAddressingMode = (groupData && groupData.addressingMode) || 'pn';
+                if (isGroup && groupData && groupData.addressingMode) {
+                    additionalAttributes = { ...additionalAttributes, addressing_mode: groupData.addressingMode };
                 }
-                const skSetRe = /await authState\.keys\.set\(\{ 'sender-key-memory': \{ \[jid\]: senderKeyMap \} \}\);/;
-                if (skSetRe.test(src)) {
-                    src = src.replace(
-                        skSetRe,
-                        `if (!participant && !isStatus) {\n                    await authState.keys.set({ 'sender-key-memory': { [jid]: senderKeyMap } });\n                }`
+                const groupSenderIdentity = (groupAddressingMode === 'lid' && meLid) ? meLid : meId;
+                let _hasOwnSenderKey = true;
+                if (!isStatus && typeof signalRepository.hasSenderKey === 'function') {
+                    try {
+                        _hasOwnSenderKey = await signalRepository.hasSenderKey({ group: destinationJid, meId: groupSenderIdentity });
+                    } catch (_) {
+                        _hasOwnSenderKey = true;
+                    }
+                }
+                const effectiveSenderKeyMap = _hasOwnSenderKey ? { ...senderKeyMap } : {};
+                const patched = await patchMessageBeforeSending(message, devices.map(d => WABinary_1.jidEncode(d.user, d.server || (groupAddressingMode === 'lid' ? 'lid' : 's.whatsapp.net'), d.device)));
+                const bytes = Utils_1.encodeWAMessage(patched);
+                const { ciphertext, senderKeyDistributionMessage } = await signalRepository.encryptGroupMessage({
+                    group: destinationJid,
+                    data: bytes,
+                    meId: groupSenderIdentity,
+                });
+                const senderKeyJids = [];
+                const seenSkJids = new Set();
+                for (const { user: dUser, device: dDevice, server: devServer } of devices) {
+                    if (dDevice === 99) continue;
+                    const devJid = WABinary_1.jidEncode(dUser, devServer || (groupAddressingMode === 'lid' ? 'lid' : 's.whatsapp.net'), dDevice);
+                    if (seenSkJids.has(devJid)) continue;
+                    seenSkJids.add(devJid);
+                    if (!effectiveSenderKeyMap[devJid]) {
+                        senderKeyJids.push(devJid);
+                        effectiveSenderKeyMap[devJid] = true;
+                    }
+                }
+                if (senderKeyJids.length) {
+                    logger.debug({ senderKeyJids }, 'sending new sender key');
+                    const senderKeyMsg = {
+                        senderKeyDistributionMessage: {
+                            axolotlSenderKeyDistributionMessage: senderKeyDistributionMessage,
+                            groupId: destinationJid
+                        }
+                    };
+                    await assertSessions(senderKeyJids, false);
+                    const result = await createParticipantNodes(senderKeyJids, senderKeyMsg, extraAttrs);
+                    shouldIncludeDeviceIdentity = shouldIncludeDeviceIdentity || result.shouldIncludeDeviceIdentity;
+                    participants.push(...result.nodes);
+                }
+                binaryNodeContent.push({
+                    tag: 'enc',
+                    attrs: { v: '2', type: 'skmsg', ...extraAttrs },
+                    content: ciphertext
+                });
+                if (!isStatus) {
+                    await authState.keys.set({ 'sender-key-memory': { [jid]: effectiveSenderKeyMap } });
+                }
+            }
+            else if (isNewsletter) {
+                if (message.protocolMessage?.editedMessage) {
+                    msgId = message.protocolMessage.key?.id;
+                    message = message.protocolMessage.editedMessage;
+                }
+                if (message.protocolMessage?.type === WAProto_1.proto.Message.ProtocolMessage.Type.REVOKE) {
+                    msgId = message.protocolMessage.key?.id;
+                    message = {};
+                }
+                const patched = await patchMessageBeforeSending(message, []);
+                const bytes = Utils_1.encodeNewsletterMessage(patched);
+                binaryNodeContent.push({
+                    tag: 'plaintext',
+                    attrs: extraAttrs ? extraAttrs : {},
+                    content: bytes
+                });
+            }
+            else if (!isRetryResend) {
+                const { user: mePnUser, device: mePnDevice } = WABinary_1.jidDecode(meId) || {};
+                const { user: meLidUser, device: meLidDevice } = meLid ? (WABinary_1.jidDecode(meLid) || {}) : {};
+                const ownId = (isLid && meLid) ? meLid : meId;
+                const ownUser = WABinary_1.jidDecode(ownId)?.user || mePnUser;
+                const ownServer = isLid ? 'lid' : 's.whatsapp.net';
+                if (additionalAttributes?.['category'] === 'peer') {
+                    devices.push({ user, server: ownServer });
+                    if (user !== ownUser) {
+                        devices.push({ user: ownUser, server: ownServer });
+                    }
+                }
+                else {
+                    const senderIdentity = WABinary_1.jidEncode(ownUser, ownServer);
+                    const additionalDevices = await getUSyncDevices([senderIdentity, jid], !!useUserDevicesCache, false);
+                    devices.push(...additionalDevices);
+                    const hasTargetDev = devices.some(d => d.user === user);
+                    if (!hasTargetDev) {
+                        devices.push({ user, device: 0, server: ownServer });
+                    }
+                }
+                const allJids = [];
+                const meJids = [];
+                const otherJids = [];
+                const seenDmJids = new Set();
+                for (const { user: dUser, device: dDevice, server: devServer } of devices) {
+                    if (dDevice === 99) continue;
+                    const isMe = dUser === mePnUser || (Boolean(meLidUser) && dUser === meLidUser);
+                    const isExactSelf = (dUser === mePnUser && (dDevice || 0) === (mePnDevice || 0))
+                        || (Boolean(meLidUser) && dUser === meLidUser && (dDevice || 0) === (typeof meLidDevice === 'number' ? meLidDevice : (mePnDevice || 0)));
+                    if (isExactSelf) continue;
+                    const resolvedServer = devServer || ownServer;
+                    const devJid = WABinary_1.jidEncode(dUser, resolvedServer, dDevice);
+                    if (seenDmJids.has(devJid)) continue;
+                    seenDmJids.add(devJid);
+                    if (isMe) {
+                        meJids.push(devJid);
+                    }
+                    else {
+                        otherJids.push(devJid);
+                    }
+                    allJids.push(devJid);
+                }
+                await assertSessions(allJids, false);
+                const [{ nodes: meNodes, shouldIncludeDeviceIdentity: s1 }, { nodes: otherNodes, shouldIncludeDeviceIdentity: s2 }] = await Promise.all([
+                    createParticipantNodes(meJids, meMsg, extraAttrs),
+                    createParticipantNodes(otherJids, message, extraAttrs)
+                ]);
+                participants.push(...meNodes);
+                participants.push(...otherNodes);
+                shouldIncludeDeviceIdentity = shouldIncludeDeviceIdentity || s1 || s2;
+            }
+            if (isRetryResend) {
+                const targetPartJid = participant.jid;
+                const isPartLid = WABinary_1.isLidUser(targetPartJid);
+                const isMePart = WABinary_1.areJidsSameUser(targetPartJid, isPartLid ? (meLid || meId) : meId)
+                    || WABinary_1.areJidsSameUser(targetPartJid, meId)
+                    || (meLid ? WABinary_1.areJidsSameUser(targetPartJid, meLid) : false);
+                let messageToSend = message;
+                if (isGroup || isStatus) {
+                    let groupSenderIdentity = undefined;
+                    if (typeof signalRepository.hasSenderKey === 'function') {
+                        if (meLid && await signalRepository.hasSenderKey({ group: destinationJid, meId: meLid })) {
+                            groupSenderIdentity = meLid;
+                        } else if (await signalRepository.hasSenderKey({ group: destinationJid, meId })) {
+                            groupSenderIdentity = meId;
+                        } else {
+                            groupSenderIdentity = (isPartLid && meLid) ? meLid : meId;
+                        }
+                    } else {
+                        groupSenderIdentity = (isPartLid && meLid) ? meLid : meId;
+                    }
+                    if (groupSenderIdentity && typeof signalRepository.getSenderKeyDistributionMessage === 'function') {
+                        try {
+                            const skdm = await signalRepository.getSenderKeyDistributionMessage({
+                                group: destinationJid,
+                                meId: groupSenderIdentity
+                            });
+                            messageToSend = {
+                                ...message,
+                                senderKeyDistributionMessage: {
+                                    groupId: destinationJid,
+                                    axolotlSenderKeyDistributionMessage: skdm
+                                }
+                            };
+                        } catch (skdmErr) {
+                            logger.warn({ err: skdmErr?.message, jid: destinationJid }, 'failed to attach SKDM on retry');
+                        }
+                    }
+                    if (isGroup && isPartLid && !additionalAttributes?.addressing_mode) {
+                        additionalAttributes = { ...additionalAttributes, addressing_mode: 'lid' };
+                    }
+                }
+                const encodedRetryMsg = isMePart
+                    ? Utils_1.encodeWAMessage({
+                        deviceSentMessage: {
+                            destinationJid,
+                            message: messageToSend
+                        }
+                    })
+                    : Utils_1.encodeWAMessage(messageToSend);
+                await assertSessions([targetPartJid], false);
+                const { type: retryEncType, ciphertext: retryCiphertext } = await signalRepository.encryptMessage({
+                    data: encodedRetryMsg,
+                    jid: targetPartJid
+                });
+                binaryNodeContent.push({
+                    tag: 'enc',
+                    attrs: {
+                        v: '2',
+                        type: retryEncType,
+                        ...extraAttrs,
+                        count: String(participant.count || 1)
+                    },
+                    content: retryCiphertext
+                });
+            }
+            if (participants.length) {
+                if (additionalAttributes?.['category'] === 'peer') {
+                    const peerNode = participants[0]?.content?.[0];
+                    if (peerNode) {
+                        binaryNodeContent.push(peerNode);
+                    }
+                }
+                else {
+                    binaryNodeContent.push({
+                        tag: 'participants',
+                        attrs: {},
+                        content: participants
+                    });
+                }
+            }
+            const stanza = {
+                tag: 'message',
+                attrs: {
+                    id: msgId,
+                    type: getTypeMessage(messages),
+                    ...(additionalAttributes || {})
+                },
+                content: binaryNodeContent
+            };
+            if (participant) {
+                if (WABinary_1.isJidGroup(destinationJid)) {
+                    stanza.attrs.to = destinationJid;
+                    stanza.attrs.participant = participant.jid;
+                }
+                else if (WABinary_1.areJidsSameUser(participant.jid, meId) || (meLid && WABinary_1.areJidsSameUser(participant.jid, meLid))) {
+                    stanza.attrs.to = participant.jid;
+                    stanza.attrs.recipient = destinationJid;
+                }
+                else {
+                    stanza.attrs.to = participant.jid;
+                }
+            }
+            else {
+                stanza.attrs.to = destinationJid;
+            }
+            if (shouldIncludeDeviceIdentity) {
+                stanza.content.push({
+                    tag: 'device-identity',
+                    attrs: {},
+                    content: (0, Utils_1.encodeSignedDeviceIdentity)(authState.creds.account, true)
+                });
+                logger.debug({ jid }, 'adding device identity');
+            }
+            if (AI && isPrivate && !isRetryResend) {
+                const botNode = {
+                    tag: 'bot',
+                    attrs: {
+                        biz_bot: '1'
+                    }
+                };
+                const filteredBizBot = WABinary_1.getBinaryNodeFilter(additionalNodes ? additionalNodes : []);
+                if (filteredBizBot) {
+                    stanza.content.push(...additionalNodes);
+                    didPushAdditional = true;
+                }
+                else {
+                    stanza.content.push(botNode);
+                }
+            }
+            if (!isNewsletter && buttonType && !isStatus && !isRetryResend) {
+                const content = WABinary_1.getAdditionalNode(buttonType);
+                const filteredNode = WABinary_1.getBinaryNodeFilter(additionalNodes);
+                if (filteredNode) {
+                    didPushAdditional = true;
+                    stanza.content.push(...additionalNodes);
+                }
+                else {
+                    stanza.content.push(...content);
+                }
+                logger.debug({ jid }, 'adding business node');
+            }
+            if (!didPushAdditional && additionalNodes && additionalNodes.length > 0 && !isRetryResend) {
+                stanza.content.push(...additionalNodes);
+            }
+            if (!isRetryResend && !isNewsletter && msgId && message) {
+                global._baileysSentCache = global._baileysSentCache || new Map();
+                global._baileysSentCache.set(msgId, { msg: message, jid: destinationJid, ts: Date.now() });
+                if (global._baileysSentCache.size > 3500) {
+                    const _oldestSentKey = global._baileysSentCache.keys().next().value;
+                    global._baileysSentCache.delete(_oldestSentKey);
+                }
+            }
+            logger.debug({ msgId, isRetryResend }, \`sending message to \${participants.length || 1} devices\`);
+            await sendNode(stanza);
+        });`
                     );
                     sendChanged = true;
                 }
@@ -408,15 +853,217 @@ const extractDeviceJids = (result, myJid, excludeZeroDevices, myLid) => {
                 }
             }
 
-            if (!recvSrc.includes('patch-retry-skm')) {
-                const retrySkmRe = /if \(\(0, WABinary_1\.isJidGroup\)\(remoteJid\)\) \{\s*await authState\.keys\.set\(\{ 'sender-key-memory': \{ \[remoteJid\]: null \} \}\);\s*\}/;
-                if (retrySkmRe.test(recvSrc)) {
+            if (!recvSrc.includes('patch-identity-reset')) {
+                const idChgRe = /const identityNode = \(0, WABinary_1\.getBinaryNodeChild\)\(node, 'identity'\);\s*if \(identityNode\) \{\s*logger\.info\(\{ jid: from \}, 'identity changed'\);[\s\S]*?\}/;
+                if (idChgRe.test(recvSrc)) {
                     recvSrc = recvSrc.replace(
-                        retrySkmRe,
-                        `// [patch-retry-skm]
-        if (sendToAll && (0, WABinary_1.isJidGroup)(remoteJid)) {
-            await authState.keys.set({ 'sender-key-memory': { [remoteJid]: null } });
-        }`
+                        idChgRe,
+                        `// [patch-identity-reset]
+            const identityNode = (0, WABinary_1.getBinaryNodeChild)(node, 'identity');
+            if (identityNode) {
+                logger.info({ jid: from }, 'identity changed');
+                try {
+                    const _idAddr = signalRepository.jidToSignalProtocolAddress(from);
+                    await authState.keys.set({ session: { [_idAddr]: null } });
+                } catch (_) {}
+            }`
+                    );
+                    recvChanged = true;
+                }
+            }
+
+            if (!recvSrc.includes('patch-retry-e2ee-v2')) {
+                const retryBlockRe = /const sendMessagesAgain = async \(key, ids, retryNode\) => \{[\s\S]*?const handleNotification = async \(node\) => \{/;
+                if (retryBlockRe.test(recvSrc)) {
+                    recvSrc = recvSrc.replace(
+                        retryBlockRe,
+                        `// [patch-retry-e2ee-v2]
+    const sendMessagesAgain = async (key, ids, retryNode, receiptNode) => {
+        const remoteJid = key.remoteJid;
+        const participant = key.participant || remoteJid;
+        const retryCount = +(retryNode === null || retryNode === void 0 ? void 0 : retryNode.attrs?.count) || 1;
+        const msgs = await Promise.all(ids.map(async (id) => {
+            let msg = await getMessage({ ...key, id });
+            if (!msg && global._baileysSentCache) {
+                const _hit = global._baileysSentCache.get(id);
+                if (_hit && _hit.msg) msg = _hit.msg;
+            }
+            if (msg && msg.message && typeof msg.message === 'object' && msg.key) {
+                msg = msg.message;
+            }
+            return msg;
+        }));
+        const sessionId = signalRepository.jidToSignalProtocolAddress(participant);
+        let injectedFromBundle = false;
+        if (receiptNode) {
+            try {
+                const keysNode = (0, WABinary_1.getBinaryNodeChild)(receiptNode, 'keys');
+                if (keysNode) {
+                    const signedKey = (0, WABinary_1.getBinaryNodeChild)(keysNode, 'skey');
+                    const preKey = (0, WABinary_1.getBinaryNodeChild)(keysNode, 'key');
+                    const identity = (0, WABinary_1.getBinaryNodeChildBuffer)(keysNode, 'identity');
+                    const regId = (0, WABinary_1.getBinaryNodeChildUInt)(receiptNode, 'registration', 4);
+                    const _toSigPub = (buf) => {
+                        if (!buf) return buf;
+                        if (typeof Utils_1.generateSignalPubKey === 'function') return (0, Utils_1.generateSignalPubKey)(buf);
+                        return buf.length === 32 ? Buffer.concat([Buffer.from([5]), buf]) : buf;
+                    };
+                    const _extKey = (k) => k ? {
+                        keyId: (0, WABinary_1.getBinaryNodeChildUInt)(k, 'id', 3),
+                        publicKey: _toSigPub((0, WABinary_1.getBinaryNodeChildBuffer)(k, 'value')),
+                        signature: (0, WABinary_1.getBinaryNodeChildBuffer)(k, 'signature')
+                    } : undefined;
+                    if (signedKey && identity && typeof regId === 'number') {
+                        await authState.keys.set({ session: { [sessionId]: null } });
+                        await signalRepository.injectE2ESession({
+                            jid: participant,
+                            session: {
+                                registrationId: regId,
+                                identityKey: _toSigPub(identity),
+                                signedPreKey: _extKey(signedKey),
+                                preKey: _extKey(preKey)
+                            }
+                        });
+                        injectedFromBundle = true;
+                        logger.debug({ participant, retryCount }, 'injected session from retry receipt key bundle');
+                    }
+                }
+            } catch (bundleErr) {
+                logger.warn({ err: bundleErr?.message, participant }, 'failed to inject session from retry receipt');
+            }
+        }
+        if (!injectedFromBundle) {
+            let needsSessionReset = retryCount >= 2;
+            if (!needsSessionReset && receiptNode && typeof signalRepository.getSessionInfo === 'function') {
+                try {
+                    const receivedRegId = (0, WABinary_1.getBinaryNodeChildUInt)(receiptNode, 'registration', 4);
+                    if (typeof receivedRegId === 'number' && Number.isInteger(receivedRegId)) {
+                        const info = await signalRepository.getSessionInfo(participant);
+                        if (info && info.registrationId && info.registrationId !== receivedRegId) {
+                            needsSessionReset = true;
+                        }
+                    }
+                } catch (_) {}
+            }
+            if (needsSessionReset) {
+                try { await authState.keys.set({ session: { [sessionId]: null } }); } catch (_) {}
+            }
+            await assertSessions([participant], true);
+        }
+        logger.debug({ participant, retryCount, injectedFromBundle }, 'prepared session for targeted retry resend');
+        for (const [i, msg] of msgs.entries()) {
+            if (msg) {
+                updateSendMessageAgainCount(ids[i], participant);
+                const msgRelayOpts = {
+                    messageId: ids[i],
+                    useUserDevicesCache: false,
+                    participant: {
+                        jid: participant,
+                        count: retryCount
+                    }
+                };
+                await relayMessage(key.remoteJid, msg, msgRelayOpts);
+            }
+            else {
+                logger.debug({ jid: key.remoteJid, id: ids[i] }, 'recv retry request, but message not available');
+            }
+        }
+    };
+    const handleReceipt = async (node) => {
+        var _a, _b;
+        const { attrs, content } = node;
+        const _recActor = attrs.participant || attrs.from || '';
+        const isLid = _recActor.includes('lid');
+        const _mePn = (_b = authState.creds.me) === null || _b === void 0 ? void 0 : _b.id;
+        const _meLid = (_a = authState.creds.me) === null || _a === void 0 ? void 0 : _a.lid;
+        const isNodeFromMe = (0, WABinary_1.areJidsSameUser)(_recActor, isLid ? (_meLid || _mePn) : _mePn)
+            || (_meLid ? (0, WABinary_1.areJidsSameUser)(_recActor, _meLid) : false)
+            || (_mePn ? (0, WABinary_1.areJidsSameUser)(_recActor, _mePn) : false);
+        const remoteJid = !isNodeFromMe || (0, WABinary_1.isJidGroup)(attrs.from) ? attrs.from : attrs.recipient;
+        const fromMe = !attrs.recipient || ((attrs.type === 'retry' || attrs.type === 'sender') && isNodeFromMe);
+        const key = {
+            remoteJid,
+            id: '',
+            fromMe,
+            participant: attrs.participant
+        };
+        if (shouldIgnoreJid(remoteJid) && remoteJid !== '@s.whatsapp.net') {
+            logger.debug({ remoteJid }, 'ignoring receipt from jid');
+            await sendMessageAck(node);
+            return;
+        }
+        const ids = [attrs.id];
+        if (Array.isArray(content)) {
+            const items = (0, WABinary_1.getBinaryNodeChildren)(content[0], 'item');
+            ids.push(...items.map(i => i.attrs.id));
+        }
+        try {
+            await Promise.all([
+                processingMutex.mutex(async () => {
+                    const status = (0, Utils_1.getStatusFromReceiptType)(attrs.type);
+                    if (typeof status !== 'undefined' &&
+                        (status >= WAProto_1.proto.WebMessageInfo.Status.SERVER_ACK ||
+                            !isNodeFromMe)) {
+                        if ((0, WABinary_1.isJidGroup)(remoteJid) || (0, WABinary_1.isJidStatusBroadcast)(remoteJid)) {
+                            if (attrs.participant) {
+                                const updateKey = status === WAProto_1.proto.WebMessageInfo.Status.DELIVERY_ACK ? 'receiptTimestamp' : 'readTimestamp';
+                                ev.emit('message-receipt.update', ids.map(id => ({
+                                    key: { ...key, id },
+                                    receipt: {
+                                        userJid: (0, WABinary_1.jidNormalizedUser)(attrs.participant),
+                                        [updateKey]: +attrs.t
+                                    }
+                                })));
+                            }
+                        }
+                        else {
+                            ev.emit('messages.update', ids.map(id => ({
+                                key: { ...key, id },
+                                update: { status }
+                            })));
+                        }
+                    }
+                    if (attrs.type === 'retry') {
+                        key.participant = key.participant || attrs.from;
+                        const retryNode = (0, WABinary_1.getBinaryNodeChild)(node, 'retry');
+                        if (willSendMessageAgain(ids[0], key.participant)) {
+                            let canResend = Boolean(key.fromMe);
+                            if (!canResend && ids[0]) {
+                                const _hasCached = Boolean(global._baileysSentCache && global._baileysSentCache.has(ids[0]));
+                                if (_hasCached) {
+                                    canResend = true;
+                                } else {
+                                    try {
+                                        const _probe = await getMessage({ ...key, id: ids[0] });
+                                        if (_probe) canResend = true;
+                                    } catch (_) {}
+                                }
+                            }
+                            if (canResend) {
+                                try {
+                                    logger.debug({ attrs, key }, 'recv retry request');
+                                    await sendMessagesAgain(key, ids, retryNode, node);
+                                }
+                                catch (error) {
+                                    logger.error({ key, ids, trace: error.stack }, 'error in sending message again');
+                                }
+                            }
+                            else {
+                                logger.info({ attrs, key }, 'recv retry for not fromMe message');
+                            }
+                        }
+                        else {
+                            logger.info({ attrs, key }, 'will not send message again, as sent too many times');
+                        }
+                    }
+                })
+            ]);
+        }
+        finally {
+            await sendMessageAck(node);
+        }
+    };
+    const handleNotification = async (node) => {`
                     );
                     recvChanged = true;
                 }

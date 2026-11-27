@@ -577,8 +577,8 @@ async function startJadibot(number, opts = {}) {
         const groupCache = new NodeCache({ stdTTL: 300, checkperiod: 120, useClones: false });
         const staleGroupCache = new Map();
         const inflightGroupMeta = new Map();
-        const sentMessageCache = new NodeCache({ stdTTL: 1800, checkperiod: 180, maxKeys: 1000, useClones: false });
-        const msgRetryCounterCache = new NodeCache({ stdTTL: 600, checkperiod: 120, useClones: false });
+        const sentMessageCache = new NodeCache({ stdTTL: 21600, checkperiod: 300, maxKeys: 2000, useClones: false });
+        const msgRetryCounterCache = new NodeCache({ stdTTL: 1800, checkperiod: 180, useClones: false });
         const userDevicesCache = new NodeCache({ stdTTL: 600, checkperiod: 120, useClones: false });
 
         const Dinz = makeWASocket({
@@ -595,8 +595,20 @@ async function startJadibot(number, opts = {}) {
                     if (!key || !key.id) return undefined;
                     const cached = sentMessageCache.get(key.id);
                     if (cached) return cached;
+                    const relayHit = global._baileysSentCache?.get(key.id);
+                    if (relayHit?.msg) return relayHit.msg;
                     const loaded = await store.loadMessage(key.remoteJid, key.id);
                     if (loaded?.message) return loaded.message;
+                    const rawDigits = String(key.remoteJid || '').split('@')[0].split(':')[0].replace(/[^0-9]/g, '');
+                    if (rawDigits) {
+                        const altJids = [];
+                        if (global.lidMap?.[rawDigits]) altJids.push(`${global.lidMap[rawDigits]}@s.whatsapp.net`);
+                        if (global.phoneToLidMap?.[rawDigits]) altJids.push(`${global.phoneToLidMap[rawDigits]}@lid`);
+                        for (const alt of altJids) {
+                            const altLoaded = await store.loadMessage(alt, key.id);
+                            if (altLoaded?.message) return altLoaded.message;
+                        }
+                    }
                 } catch (_) {}
                 return undefined;
             },

@@ -447,7 +447,7 @@ function recordSentBotMessage(msgId, message, sentMessageCache) {
     if (!msgId) return;
     global.sentKeys = global.sentKeys || new Set();
     global.sentKeys.add(msgId);
-    if (global.sentKeys.size > 1500) {
+    if (global.sentKeys.size > 3000) {
         const firstKey = global.sentKeys.values().next().value;
         global.sentKeys.delete(firstKey);
     }
@@ -663,8 +663,8 @@ async function _startBotInner() {
     const store = await makeInMemoryStore({
         logger: pino().child({ level: 'silent', stream: 'store' })
     });
-    const sentMessageCache = new NodeCache({ stdTTL: 1800, checkperiod: 180, maxKeys: 1500, useClones: false });
-    const msgRetryCounterCache = new NodeCache({ stdTTL: 600, checkperiod: 120, useClones: false });
+    const sentMessageCache = new NodeCache({ stdTTL: 21600, checkperiod: 300, maxKeys: 3000, useClones: false });
+    const msgRetryCounterCache = new NodeCache({ stdTTL: 1800, checkperiod: 180, useClones: false });
     const userDevicesCache = new NodeCache({ stdTTL: 600, checkperiod: 120, useClones: false });
     const { version } = await fetchLatestBaileysVersion();
 
@@ -682,6 +682,8 @@ async function _startBotInner() {
                 if (!key || !key.id) return undefined;
                 const cached = sentMessageCache.get(key.id);
                 if (cached) return cached;
+                const relayHit = global._baileysSentCache?.get(key.id);
+                if (relayHit?.msg) return relayHit.msg;
                 const loaded = await store.loadMessage(key.remoteJid, key.id);
                 if (loaded?.message) return loaded.message;
                 const rawDigits = String(key.remoteJid || '').split('@')[0].split(':')[0].replace(/[^0-9]/g, '');
