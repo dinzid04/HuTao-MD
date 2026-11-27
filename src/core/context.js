@@ -167,25 +167,30 @@ function normalizeRootDb(raw) {
 
     base.jadibot = { registry, clones };
     if (raw && raw._meta && typeof raw._meta === 'object') {
-        base._meta = { updatedAt: Number(raw._meta.updatedAt) || 0 };
+        base._meta = {
+            updatedAt: Number(raw._meta.updatedAt) || 0,
+            botNumber: String(raw._meta.botNumber || '')
+        };
     } else {
-        base._meta = { updatedAt: 0 };
+        base._meta = { updatedAt: 0, botNumber: '' };
     }
     return base;
 }
 
 function getDatabasePath() {
     const filename = String(global.tempatDB || 'database.json').trim() || 'database.json';
-    if (!fs.existsSync(DATA_DIR)) {
-        fs.mkdirSync(DATA_DIR, { recursive: true });
+    const dataDir = path.join(process.cwd(), 'data');
+    if (!fs.existsSync(dataDir)) {
+        fs.mkdirSync(dataDir, { recursive: true });
     }
-    return path.join(DATA_DIR, filename);
+    return path.join(dataDir, filename);
 }
 
 function loadRootDbFromDisk() {
     const dbFile = getDatabasePath();
     let parsed = {};
-    if (fs.existsSync(dbFile)) {
+    const existed = fs.existsSync(dbFile);
+    if (existed) {
         try {
             parsed = JSON.parse(fs.readFileSync(dbFile, 'utf8') || '{}');
         } catch (e) {
@@ -194,13 +199,15 @@ function loadRootDbFromDisk() {
         }
     }
     const normalized = normalizeRootDb(parsed);
-    if (!fs.existsSync(dbFile)) {
-        writeRootDbToDisk(normalized);
+    if (!existed) {
+        // File baru kosong -> biarkan _meta.updatedAt = 0 agar tidak menimpa data MongoDB milik nomor bot saat pindah panel
+        writeRootDbToDisk(normalized, false, { keepMetaTimestamp: true });
     }
     return normalized;
 }
 
 let activeStorageMode = 'local';
+let syncedMongoDocId = '';
 let lastDiskSerialized = '';
 let lastMongoSerialized = '';
 let diskWriteTimer = null;
@@ -210,14 +217,18 @@ let mongoPushInFlight = null;
 let lastMongoPushAt = 0;
 const MONGO_MIN_INTERVAL_MS = 60 * 1000;
 
-function writeRootDbToDisk(rootObj, force = false) {
+function writeRootDbToDisk(rootObj, force = false, opts = {}) {
     const dbFile = getDatabasePath();
     const dir = path.dirname(dbFile);
     if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir, { recursive: true });
     }
-    if (rootObj && typeof rootObj === 'object') {
-        rootObj._meta = { updatedAt: Date.now() };
+    if (rootObj && typeof rootObj === 'object' && !opts.keepMetaTimestamp) {
+        const curBotNum = typeof mongo.getActiveBotNumber === 'function' ? mongo.getActiveBotNumber() : '';
+        rootObj._meta = {
+            updatedAt: Date.now(),
+            botNumber: curBotNum || String(rootObj._meta?.botNumber || '')
+        };
     }
     // Gunakan JSON compact (tanpa indentasi 2 spasi) -> ~40% lebih kecil & 3x lebih cepat di-stringify!
     const payload = JSON.stringify(rootObj);
@@ -264,7 +275,7 @@ function scheduleDiskWrite() {
 }
 
 async function pushRootDbToMongo(force = false, preSerialized = null) {
-    if (!mongo.isConfigured()) {
+    if (!mongo.isReadyForSync()) {
         activeStorageMode = 'local';
         return false;
     }
@@ -299,6 +310,7 @@ async function pushRootDbToMongo(force = false, preSerialized = null) {
             lastMongoSerialized = latestPayload;
             lastMongoPushAt = Date.now();
             activeStorageMode = 'mongodb';
+            syncedMongoDocId = mongo.getMongoDocId();
         }
         return ok;
     })();
@@ -311,7 +323,7 @@ async function pushRootDbToMongo(force = false, preSerialized = null) {
 }
 
 function scheduleMongoPush() {
-    if (!mongo.isConfigured()) return;
+    if (!mongo.isReadyForSync()) return;
     if (mongoPushTimer) return;
     const elapsed = Date.now() - lastMongoPushAt;
     const waitMs = Math.max(5000, MONGO_MIN_INTERVAL_MS - elapsed);
@@ -326,15 +338,28 @@ function getStorageMode() {
     return activeStorageMode;
 }
 
+function getMongoSlotId() {
+    return mongo.getMongoDocId();
+}
+
+function hasMeaningfulLocalDb(dbObj) {
+    if (!dbObj || typeof dbObj !== 'object') return false;
+    const userCount = Object.keys(dbObj.users || {}).length;
+    const groupCount = Object.keys(dbObj.groups || {}).length;
+    const hasExplicitSettings = Boolean(dbObj.settings && Number(dbObj.settings._updatedAt || 0) > 0);
+    return userCount > 0 || groupCount > 0 || hasExplicitSettings;
+}
+
 async function initStorage() {
     const localDb = loadRootDbFromDisk();
-    if (!mongo.isConfigured()) {
+    if (!mongo.isReadyForSync()) {
         activeStorageMode = 'local';
+        syncedMongoDocId = '';
         global._mainDb = localDb;
-        return { mode: 'local', data: global._mainDb };
+        return { mode: 'local', pendingPairing: mongo.isConfigured(), data: global._mainDb };
     }
 
-    const { connected, payload } = await mongo.loadPayload();
+    const { connected, payload, docId } = await mongo.loadPayload();
     if (!connected) {
         activeStorageMode = 'local';
         global._mainDb = localDb;
@@ -342,46 +367,76 @@ async function initStorage() {
     }
 
     activeStorageMode = 'mongodb';
+    syncedMongoDocId = docId || mongo.getMongoDocId();
+    const currentBotNum = typeof mongo.getActiveBotNumber === 'function' ? mongo.getActiveBotNumber() : '';
+    const localBotNum = String(localDb?._meta?.botNumber || '');
+    const localMatchesBot = !localBotNum || !currentBotNum || localBotNum === currentBotNum;
+
     if (payload && typeof payload === 'object' && Object.keys(payload).length > 0) {
         const cloudNorm = normalizeRootDb(payload);
-        const localTs = Number(localDb?._meta?.updatedAt || 0);
+        const localHasData = localMatchesBot && hasMeaningfulLocalDb(localDb);
+        const localTs = localHasData ? Number(localDb?._meta?.updatedAt || 0) : 0;
         const cloudTs = Number(cloudNorm?._meta?.updatedAt || 0);
-        const localSettingsTs = Number(localDb?.settings?._updatedAt || localTs);
+        const localSettingsTs = localMatchesBot ? Number(localDb?.settings?._updatedAt || 0) : 0;
         const cloudSettingsTs = Number(cloudNorm?.settings?._updatedAt || cloudTs);
 
-        // Jika settings lokal di disk lebih baru (misal habis .setmenu 8 lalu langsung .updatesc / restart panel
-        // sebelum antrean MongoDB 60 detik sempat jalan), pertahankan settings lokal & langsung sinkronkan ke MongoDB!
-        if (localSettingsTs > cloudSettingsTs && localDb?.settings) {
+        if (localMatchesBot && localSettingsTs > cloudSettingsTs && localDb?.settings) {
             cloudNorm.settings = { ...cloudNorm.settings, ...localDb.settings };
         }
-        if (localTs > cloudTs && cloudTs > 0) {
+        if (localHasData && localTs > cloudTs && cloudTs > 0) {
             global._mainDb = localDb;
             writeRootDbToDisk(global._mainDb, true);
             await pushRootDbToMongo(true);
-            return { mode: 'mongodb', source: 'local_newer_synced', data: global._mainDb };
+            return { mode: 'mongodb', docId: syncedMongoDocId, source: 'local_newer_synced', data: global._mainDb };
         }
 
         const rawBefore = JSON.stringify(payload);
         global._mainDb = cloudNorm;
         const normAfter = JSON.stringify(global._mainDb);
         writeRootDbToDisk(global._mainDb, true);
-        if (normAfter !== rawBefore || localSettingsTs > cloudSettingsTs) {
+        if (normAfter !== rawBefore || (localMatchesBot && localSettingsTs > cloudSettingsTs)) {
             await pushRootDbToMongo(true);
         } else {
             lastMongoSerialized = normAfter;
         }
-        return { mode: 'mongodb', source: 'cloud', data: global._mainDb };
+        return { mode: 'mongodb', docId: syncedMongoDocId, source: 'cloud', data: global._mainDb };
     }
 
-    global._mainDb = localDb;
+    // Jika cache lokal milik nomor bot lain (habis ganti nomor pairing di panel sama), mulai DB bersih untuk nomor baru!
+    global._mainDb = localMatchesBot ? localDb : normalizeRootDb({});
+    writeRootDbToDisk(global._mainDb, true);
     await pushRootDbToMongo(true);
-    return { mode: 'mongodb', source: 'migrated_from_local', data: global._mainDb };
+    return { mode: 'mongodb', docId: syncedMongoDocId, source: 'created_new_slot', data: global._mainDb };
+}
+
+/**
+ * Dipanggil saat koneksi WA open / selesai pairing untuk mengikat database MongoDB ke nomor WA bot (`bot_<nomor>`).
+ */
+async function bindBotNumberStorage(botNumber) {
+    const clean = mongo.setActiveBotNumber(botNumber);
+    if (!clean || !mongo.isReadyForSync()) {
+        return { mode: activeStorageMode, docId: '' };
+    }
+    const targetDocId = mongo.getMongoDocId();
+    if (activeStorageMode === 'mongodb' && syncedMongoDocId === targetDocId) {
+        return { mode: 'mongodb', docId: targetDocId, alreadyBound: true };
+    }
+    lastMongoSerialized = '';
+    lastMongoPushAt = 0;
+    return initStorage();
+}
+
+function resetBotNumberBinding() {
+    mongo.setActiveBotNumber('');
+    syncedMongoDocId = '';
+    lastMongoSerialized = '';
+    lastMongoPushAt = 0;
 }
 
 async function flushStorage(force = false) {
     const root = getRootDb();
     const res = writeRootDbToDisk(root, force);
-    if (mongo.isConfigured()) {
+    if (mongo.isReadyForSync()) {
         if (force) {
             await pushRootDbToMongo(true, res.payload);
         } else if (res.changed) {
@@ -842,6 +897,9 @@ module.exports = {
     MAIN_MEDIA_DIR,
     getDatabasePath,
     getStorageMode,
+    getMongoSlotId,
+    bindBotNumberStorage,
+    resetBotNumberBinding,
     initStorage,
     flushStorage,
     getRootDb,

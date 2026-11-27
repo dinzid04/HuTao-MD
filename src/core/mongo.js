@@ -3,58 +3,69 @@ const path = require('path');
 const chalk = require('chalk');
 
 const COLLECTION_NAME = 'bot_state';
-const DEFAULT_DOC_ID = 'unified_database';
-
-let envLoaded = false;
-function loadDotEnvOnce() {
-    if (envLoaded) return;
-    envLoaded = true;
-    try {
-        const envPath = path.join(process.cwd(), '.env');
-        if (!fs.existsSync(envPath)) return;
-        const lines = fs.readFileSync(envPath, 'utf8').split(/\r?\n/);
-        for (const rawLine of lines) {
-            const line = rawLine.trim();
-            if (!line || line.startsWith('#')) continue;
-            const eqIdx = line.indexOf('=');
-            if (eqIdx <= 0) continue;
-            const key = line.slice(0, eqIdx).trim();
-            let val = line.slice(eqIdx + 1).trim();
-            if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
-                val = val.slice(1, -1);
-            }
-            if (key && process.env[key] === undefined) {
-                process.env[key] = val;
-            }
-        }
-    } catch (_) {}
-}
-
-loadDotEnvOnce();
 
 let client = null;
 let dbInstance = null;
 let connectPromise = null;
 let warnedMissingDriver = false;
 let warnedConnError = false;
+let activeBotNumber = '';
+
+function normalizePhoneDigits(raw) {
+    if (!raw) return '';
+    let num = String(raw).split(':')[0].split('@')[0].replace(/[^0-9]/g, '');
+    if (num.startsWith('08')) num = '62' + num.slice(1);
+    return num.length >= 6 ? num : '';
+}
+
+function readPairedBotNumberFromSession() {
+    try {
+        const credsPath = path.join(process.cwd(), 'session', 'creds.json');
+        if (!fs.existsSync(credsPath)) return '';
+        const creds = JSON.parse(fs.readFileSync(credsPath, 'utf8'));
+        if (!creds || !creds.me?.id) return '';
+        return normalizePhoneDigits(creds.me.id);
+    } catch (_) {
+        return '';
+    }
+}
+
+function setActiveBotNumber(rawNum) {
+    activeBotNumber = normalizePhoneDigits(rawNum);
+    return activeBotNumber;
+}
+
+function getActiveBotNumber() {
+    if (activeBotNumber) return activeBotNumber;
+    const fromSession = readPairedBotNumberFromSession();
+    if (fromSession) activeBotNumber = fromSession;
+    return activeBotNumber;
+}
 
 function getMongoUri() {
-    loadDotEnvOnce();
-    return String(process.env.MONGO_URI || process.env.MONGODB_URI || global.mongoUri || '').trim();
+    return String(global.mongoUri || process.env.MONGO_URI || process.env.MONGODB_URI || '').trim();
 }
 
 function getMongoDbName() {
-    loadDotEnvOnce();
-    return String(process.env.MONGO_DB_NAME || global.mongoDbName || 'shiki_ai').trim() || 'shiki_ai';
+    return String(global.mongoDbName || process.env.MONGO_DB_NAME || 'shiki_ai').trim() || 'shiki_ai';
 }
 
+/**
+ * Isolasi dokumen MongoDB otomatis PER NOMOR WA YANG DIPAIRING (contoh: bot_6283856943872).
+ * Jika bot belum pairing (session/creds.json belum ada), kembalikan '' agar tidak menimpa DB nomor lain!
+ */
 function getMongoDocId() {
-    loadDotEnvOnce();
-    return String(process.env.MONGO_DOC_ID || global.mongoDocId || DEFAULT_DOC_ID).trim() || DEFAULT_DOC_ID;
+    const botNum = getActiveBotNumber();
+    if (!botNum) return '';
+    return `bot_${botNum}`;
 }
 
 function isConfigured() {
     return getMongoUri().length > 0;
+}
+
+function isReadyForSync() {
+    return isConfigured() && getMongoDocId().length > 0;
 }
 
 async function getDb() {
@@ -107,37 +118,42 @@ async function getDb() {
 }
 
 async function loadPayload() {
+    const docId = getMongoDocId();
+    if (!docId) return { connected: false, payload: null, reason: 'unpaired' };
     const db = await getDb();
     if (!db) return { connected: false, payload: null };
 
     try {
-        const doc = await db.collection(COLLECTION_NAME).findOne({ _id: getMongoDocId() });
+        const doc = await db.collection(COLLECTION_NAME).findOne({ _id: docId });
         if (!doc) {
-            return { connected: true, payload: null };
+            return { connected: true, payload: null, docId };
         }
         if (typeof doc.payload === 'string') {
-            return { connected: true, payload: JSON.parse(doc.payload || '{}') };
+            return { connected: true, payload: JSON.parse(doc.payload || '{}'), docId };
         }
         if (doc.data && typeof doc.data === 'object') {
-            return { connected: true, payload: doc.data };
+            return { connected: true, payload: doc.data, docId };
         }
-        return { connected: true, payload: null };
+        return { connected: true, payload: null, docId };
     } catch (err) {
-        console.warn(chalk.yellow(`[MongoDB] Gagal membaca data (${err.message}).`));
+        console.warn(chalk.yellow(`[MongoDB:${docId}] Gagal membaca data (${err.message}).`));
         return { connected: false, payload: null };
     }
 }
 
 async function savePayload(jsonString) {
+    const docId = getMongoDocId();
+    if (!docId) return false;
     const db = await getDb();
     if (!db) return false;
 
     try {
         await db.collection(COLLECTION_NAME).updateOne(
-            { _id: getMongoDocId() },
+            { _id: docId },
             {
                 $set: {
                     payload: jsonString,
+                    botNumber: getActiveBotNumber(),
                     updatedAt: new Date()
                 }
             },
@@ -145,7 +161,7 @@ async function savePayload(jsonString) {
         );
         return true;
     } catch (err) {
-        console.warn(chalk.yellow(`[MongoDB] Gagal menyimpan data (${err.message}). Data tetap aman di lokal.`));
+        console.warn(chalk.yellow(`[MongoDB:${docId}] Gagal menyimpan data (${err.message}). Data tetap aman di lokal.`));
         return false;
     }
 }
@@ -160,8 +176,11 @@ async function close() {
 }
 
 module.exports = {
-    loadDotEnvOnce,
     isConfigured,
+    isReadyForSync,
+    setActiveBotNumber,
+    getActiveBotNumber,
+    getMongoDocId,
     getDb,
     loadPayload,
     savePayload,

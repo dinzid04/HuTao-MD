@@ -1,14 +1,14 @@
 {
-  "version": "1.6.2",
+  "version": "1.6.3",
   "updatedAt": "2026-11-28",
-  "summary": "Perbaikan Session 100% Lokal Masing-Masing (Tidak Disimpan ke MongoDB) Sementara Database MongoDB Tetap Aktif",
+  "summary": "Database MongoDB Otomatis Terisolasi Per-Nomor Bot yang Dipairing (bot_<nomor>) — Anti Bentrok Setmenu & Data Antar Pengguna",
   "added": [
-    "Pemisahan total antara database bot (MongoDB tetap aktif) dan session login WhatsApp (100% lokal masing-masing di folder ./session & ./jadibot-session)"
+    "Isolasi Database MongoDB otomatis berdasarkan nomor WhatsApp bot yang dipairing (_id: bot_<nomor>): setiap nomor bot kini memiliki slot database sendiri di MongoDB sehingga .setmenu, owner, premium, users, groups, RPG, antidelete, anticall, dan customreact tidak akan pernah saling timpa atau gunta-ganti antar pengguna",
+    "Auto-bind slot database pada saat selesai pairing baru: jika nomor bot yang sama dipairing ulang di panel baru, seluruh data miliknya otomatis terpulihkan ke slot bot_<nomor> tanpa menyentuh data nomor bot lain",
+    "Info Slot Per-Nomor kini ditampilkan di log startup dan perintah .dbstatus"
   ],
   "fixed": [
-    "Menghapus penyimpanan dan auto-restore session WA ke MongoDB pada Bot Utama maupun Jadibot sehingga pengguna lain yang memasang script tetap selalu diminta Pairing Code / QR nomornya sendiri dan tidak pernah nyambung ke session nomor yang sudah pairing sebelumnya"
-  ],
-  "changed": [
-    "Perintah .backupsesi dan .restoresesi kini bekerja 100% secara lokal lewat file ZIP pribadi ke DM Owner tanpa pernah mengunggah session ke MongoDB"
+    "Mencegah bot yang belum pairing membaca atau menimpa database nomor bot lain yang sudah aktif di MongoDB",
+    "Mencegah file database.json kosong pada instalasi panel baru menimpa data MongoDB milik nomor bot tersebut"
   ]
 }

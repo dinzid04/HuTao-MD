@@ -277,11 +277,14 @@ async function initMainDatabase() {
         }
         await database.write(loadedDb, false);
         const mode = String(database.getMode ? database.getMode() : 'local').toUpperCase();
+        const slotId = typeof botCtx.getMongoSlotId === 'function' ? botCtx.getMongoSlotId() : '';
         console.log(
             chalk.green(
                 mode === 'MONGODB'
-                    ? '[Database] Siap [MONGODB Cloud + Cache Lokal data/database.json]'
-                    : '[Database] Siap [LOKAL data/database.json]'
+                    ? `[Database] Siap [MONGODB Cloud (${slotId || 'per-nomor'}) + Cache Lokal data/database.json]`
+                    : (global.mongoUri
+                        ? '[Database] Siap [Lokal Sementara — MongoDB aktif otomatis per-nomor setelah pairing]'
+                        : '[Database] Siap [LOKAL data/database.json]')
             )
         );
         installGracefulShutdown();
@@ -702,6 +705,7 @@ async function _startBotInner() {
     const wipeSessionFolder = async () => {
         try { await clearAuthSession(); } catch (_) {}
         try { fs.rmSync('session', { recursive: true, force: true }); } catch (_) {}
+        if (typeof botCtx.resetBotNumberBinding === 'function') botCtx.resetBotNumberBinding();
         currentBotNumber = null;
         reconnectAttempts = 0;
         unregisteredCloseCount = 0;
@@ -882,6 +886,20 @@ async function _startBotInner() {
 
             if (connectedNumber) {
                 currentBotNumber = connectedNumber;
+                if (typeof botCtx.bindBotNumberStorage === 'function') {
+                    try {
+                        const bindRes = await botCtx.bindBotNumberStorage(connectedNumber);
+                        if (bindRes && bindRes.mode === 'mongodb' && !bindRes.alreadyBound) {
+                            console.log(
+                                chalk.green(
+                                    `[Database] Terhubung ke slot MongoDB khusus nomor +${connectedNumber} (${bindRes.docId}) ✓`
+                                )
+                            );
+                        }
+                    } catch (bindErr) {
+                        console.warn(chalk.yellow('[Database] Gagal bind slot nomor:'), bindErr?.message || bindErr);
+                    }
+                }
             }
 
             const nowWib = moment().tz(global.timezone || 'Asia/Jakarta').format('DD/MM/YYYY HH:mm:ss [WIB]');
