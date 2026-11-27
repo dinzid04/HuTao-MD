@@ -69,8 +69,9 @@ module.exports = {
         const zipExcludes = [
             'node_modules/*', '*/node_modules/*',
             '.git/*', '.npm/*', '.cache/*', '.config/*', '.local/*',
+            '.env', '.env.*',
             'session/*', 'jadibot-session/*', 'bin/*', 'tmp/*',
-            'data/jadibot-media/*', 'data/media-list/*', 'data/caller-session.db*', 'data/cookies.txt',
+            'data/*',
             '*.zip', '*.tar.gz', '*.bak', '*.log'
         ].map((p) => `"${p}"`).join(' ');
         const zipCommand = `zip -r -9 "${zipFilePath}" . -x ${zipExcludes}`;

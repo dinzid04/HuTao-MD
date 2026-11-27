@@ -37,15 +37,15 @@ module.exports = {
                 title: 'STATUS CLOUD SESSION SYNC',
                 rows: [
                     { label: 'Session Lokal', value: localOk ? '🟢 Valid (./session)' : '🔴 Tidak ada' },
-                    { label: 'MongoDB Cloud', value: status.configured ? (status.connected ? '🟢 Terhubung' : '🟡 Tidak terjangkau') : '⚪ Belum diisi' },
-                    { label: 'Snapshot Cloud', value: status.exists ? `🟢 Tersimpan (${status.fileCount} file • ${sizeKb})` : '🔴 Belum ada' },
+                    { label: 'Auto Cloud Sync', value: status.enabled ? (status.connected ? '🟢 Aktif (Private Key)' : '🟡 Tidak terjangkau') : '🔒 OFF (Aman Open-Source)' },
+                    { label: 'Snapshot Cloud', value: status.exists ? `🟢 Tersimpan (${status.fileCount} file • ${sizeKb})` : '⚪ Tidak aktif / Kosong' },
                     { label: 'Terakhir Sync', value: updatedStr },
-                    ...(pushed && cmd === 'syncsesi' ? [{ label: 'Hasil Sync', value: pushed.ok ? '✅ Berhasil diperbarui' : `❌ ${pushed.reason}` }] : [])
+                    ...(pushed && cmd === 'syncsesi' ? [{ label: 'Hasil Sync', value: pushed.ok ? '✅ Berhasil diperbarui' : `🔒 Dinonaktifkan (${pushed.reason})` }] : [])
                 ],
                 body:
-                    `*${toBoldSans('Cara Pindah Panel Tanpa Pairing Ulang:')}*\n` +
-                    `◦ *Otomatis (MongoDB):* Pastikan \`mongoUri\` / env \`MONGO_URI\` sama di panel baru & perangkat di WA belum di-logout — session otomatis pulih saat start!\n` +
-                    `◦ *Manual (Tanpa MongoDB):* Jalankan ${toMono(`${pfx}backupsesi`)} (dikirim ke DM Owner), lalu ekstrak ZIP-nya ke folder \`session/\` di panel baru atau reply dengan ${toMono(`${pfx}restoresesi`)}.`
+                    `*${toBoldSans('Cara Pindah Panel Tanpa Pairing Ulang (Aman):')}*\n` +
+                    `◦ *Rekomendasi Aman (ZIP Pribadi):* Jalankan ${toMono(`${pfx}backupsesi`)} (file dikirim pribadi ke DM Owner), lalu ekstrak ke folder \`session/\` di panel baru atau reply dengan ${toMono(`${pfx}restoresesi`)}.\n` +
+                    `◦ *Cloud Otomatis (Opsional Pribadi):* Isi \`MONGO_URI\`, \`MONGO_SESSION_SYNC=true\`, dan \`SESSION_SYNC_KEY=kode_rahasia\` di file \`.env\` pribadi Anda.`
             }));
         }
 

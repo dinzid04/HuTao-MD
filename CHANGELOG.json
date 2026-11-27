@@ -1,23 +1,15 @@
 {
-  "version": "1.6.0",
+  "version": "1.6.1",
   "updatedAt": "2026-11-28",
-  "summary": "Perbaikan Permanen Setmenu & Settings MongoDB, Stabilitas Koneksi Baileys & Optimasi RAM, AntiDelete (Grup & Private), AntiCall (Suara & Video), Menu Vercel, 21 Rich Games Baru & 190+ Fitur Baru Lulus Audit",
+  "summary": "Perbaikan Keamanan Session Open-Source (Pairing Bersih untuk Pengguna Baru & Proteksi .env)",
   "added": [
-    "Fitur Anti-Delete Pesan (.antidelete on/off): otomatis mengirim laporan pesan teks maupun media yang dihapus ke DM Owner dengan tampilan terpisah untuk Grup (Nama Grup, Kontak & Nama Penghapus, Waktu, Isi/Media) dan Private Chat (Nama Kontak, Nomor, Waktu, Isi/Media), hemat 0 buffer di RAM",
-    "Fitur Anti-Call Suara & Video (.anticall on/off/block): menolak otomatis baik Panggilan Suara (Telepon Biasa) maupun Video Call, mengirim peringatan ke penelpon, opsi auto-block (.anticall block), serta laporan detail ke DM Owner, terintegrasi di .cekonoff",
-    "Fitur Kontrol Owner Baru: .autobio, .autoreactsw, .clearcache, .clearsessions (aman tanpa logout), .buatgrup, .ban, .unban, .listban, .bcpc, .bcgc",
-    "21 Game Interaktif HTML Baru di Menu Rich Game (.menu rich): .ludo, .uno, .poker, .gaple, .dam, .othello, .ceme, .bjrich, .mafia, .undercover, .ulartanggarich, .sudoku, .pong, .geodash, .isekai, .typing, .whack, .catchstar, .colortest, .destroy, .mathrich (100% aset lokal instan anti-404)",
-    "Kategori Baru Menu Vercel (.menu vercel): .setvercel, .vdeploy (deploy langsung file .html / .zip / kode HTML ke website aktif), .vlist, .vinfo, .vdeployments, .vdomain, .vdelete",
-    "Ekspansi Besar Menu RPG (39 command baru): Simulator Crypto & Saham (.cryptoprice, .cryptobuy, .cryptosell, .cryptoportfolio, .saham), Simulator YouTuber & TikToker (.createyt, .akunyt, .liveyt, .creatett, .akuntt, .livett, .endorse, .sawer), Profesi & Ekonomi (.warnet, .warteg, .cafe, .berdagang, .freelance, .polisi, .crime, .bansos, .gajian, .hourly, .dailybox, .redeem, .bankcek, .buykoin), Battle & Crafting (.arena, .bossfight, .dragonraid, .bounty, .blacksmith, .alchemy, .cook, .enchant, .gacha, .waifugacha, .prestige, .reincarnate)",
-    "Ekspansi Besar Menu Clan (19 command baru): .clanbank, .clancheckin, .clanlevel, .clanxp, .clanupgrade, .clandesc, .clanrename, .logoclan, .clanpromote, .clandemote, .clanannounce, .clanboss, .clanraid, .clanjoinraid, .clanrank, .clanraport, .clanwaraccept, .clanwarhistory, .clanwarscore",
-    "Suite Menfess Pro & 59 Fitur Cek/Fun Baru (.menu fun): .menfess, .balasmenfess, .menfessku, .cekmenfess, .tarikmenfess, .tolakmenfess, .blokmenfess, .unblokmenfess, .lapormenfess, .samaranmenfess, .banmenfess, 52 fitur .cek* (.cekalay, .cekiq, .cekkepribadian, .ceksultan, .cekgacha, dll) serta .bagaimana, .berapa, .mengapa, .mimpi, .sulap, .jodoh, .coba",
-    "18 Generator Lokal Menu Maker (.menu maker): .ektp, .fakedana, .fakebankjago, .fakeatm, .boardingpass, .fakecall, .fakestory, .faketweet, .fakesertifikat, .iqcpink, .iqcmerah, .iqcwindows, .buatquotes, .commentquote, .codesnap, .kwitansi, .nokia, .pakustad",
-    "14 Fitur Baru Menu Group (.menu group): .acc / .approve (kelola request join grup), .setppgc, .delppgc, .getppgc, .pinchat, .unpinchat, .autoreply, .addcmdsticker / .delcmdsticker / .listcmdsticker (stiker jadi shortcut command), .cekidgc, .selfthisgc, .publicthisgc"
+    "Dukungan pembacaan otomatis file .env lokal (MONGO_URI, MONGO_DB_NAME, MONGO_DOC_ID) agar kredensial database pribadi tetap terisolasi dan aman saat rilis open-source maupun .getsc"
   ],
   "fixed": [
-    "Perbaikan permanen bug .setmenu (misal .setmenu 8) & pengaturan Owner yang ikut ke-reset setelah .updatesc atau restart panel meski memakai MongoDB: kini setiap perubahan langsung di-flush instan ke disk + MongoDB dengan perbandingan timestamp (_meta.updatedAt & settings._updatedAt) sehingga payload MongoDB yang lebih lama tidak pernah lagi menimpa setting terbaru"
+    "Perbaikan bug session pada versi Open-Source di mana pengguna baru yang menginstal script otomatis tersambung ke session lama dan gagal meminta Pairing Code sendiri: auto-restore session cloud kini dinonaktifkan secara default sehingga setiap instalasi baru selalu memulai proses Pairing Code / QR secara bersih",
+    "Pembersihan nilai bawaan database & kredensial di settings.js open-source serta proteksi tambahan pada .getsc & .backup agar file .env dan session tidak pernah ikut terbagikan"
   ],
   "changed": [
-    "Peningkatan stabilitas koneksi Baileys ke server WhatsApp (keepAlive 20s, WebSocket ping liveness watchdog 45s, jittered reconnect backoff, pembersihan socket/listener lama sebelum reconnect) dan optimasi agresif penggunaan RAM di Bot Utama maupun Jadibot (pruning berkala store.messages, sentMessageCache, dan auto-clean ./tmp)"
+    "Fitur pindah panel tanpa pairing ulang kini direkomendasikan memakai .backupsesi dan .restoresesi (ZIP terenkripsi/pribadi via DM Owner), sedangkan Cloud Session Sync bersifat opsional khusus pemilik yang mengaktifkan MONGO_SESSION_SYNC=true beserta SESSION_SYNC_KEY pribadi di .env"
   ]
 }

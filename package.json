@@ -1,6 +1,6 @@
 {
   "name": "hutao-md",
-  "version": "1.6.0",
+  "version": "1.6.1",
   "description": "HuTao - MD Multi-Device WhatsApp Bot",
   "main": "index.js",
   "type": "commonjs",

@@ -1,7 +1,36 @@
+const fs = require('fs');
+const path = require('path');
 const chalk = require('chalk');
 
 const COLLECTION_NAME = 'bot_state';
-const DOC_ID = 'unified_database';
+const DEFAULT_DOC_ID = 'unified_database';
+
+let envLoaded = false;
+function loadDotEnvOnce() {
+    if (envLoaded) return;
+    envLoaded = true;
+    try {
+        const envPath = path.join(process.cwd(), '.env');
+        if (!fs.existsSync(envPath)) return;
+        const lines = fs.readFileSync(envPath, 'utf8').split(/\r?\n/);
+        for (const rawLine of lines) {
+            const line = rawLine.trim();
+            if (!line || line.startsWith('#')) continue;
+            const eqIdx = line.indexOf('=');
+            if (eqIdx <= 0) continue;
+            const key = line.slice(0, eqIdx).trim();
+            let val = line.slice(eqIdx + 1).trim();
+            if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+                val = val.slice(1, -1);
+            }
+            if (key && process.env[key] === undefined) {
+                process.env[key] = val;
+            }
+        }
+    } catch (_) {}
+}
+
+loadDotEnvOnce();
 
 let client = null;
 let dbInstance = null;
@@ -10,11 +39,18 @@ let warnedMissingDriver = false;
 let warnedConnError = false;
 
 function getMongoUri() {
+    loadDotEnvOnce();
     return String(process.env.MONGO_URI || process.env.MONGODB_URI || global.mongoUri || '').trim();
 }
 
 function getMongoDbName() {
-    return String(process.env.MONGO_DB_NAME || global.mongoDbName || 'shiki_ai').trim() || 'shiki_ai';
+    loadDotEnvOnce();
+    return String(process.env.MONGO_DB_NAME || global.mongoDbName || 'hutao_md').trim() || 'hutao_md';
+}
+
+function getMongoDocId() {
+    loadDotEnvOnce();
+    return String(process.env.MONGO_DOC_ID || global.mongoDocId || DEFAULT_DOC_ID).trim() || DEFAULT_DOC_ID;
 }
 
 function isConfigured() {
@@ -75,7 +111,7 @@ async function loadPayload() {
     if (!db) return { connected: false, payload: null };
 
     try {
-        const doc = await db.collection(COLLECTION_NAME).findOne({ _id: DOC_ID });
+        const doc = await db.collection(COLLECTION_NAME).findOne({ _id: getMongoDocId() });
         if (!doc) {
             return { connected: true, payload: null };
         }
@@ -98,7 +134,7 @@ async function savePayload(jsonString) {
 
     try {
         await db.collection(COLLECTION_NAME).updateOne(
-            { _id: DOC_ID },
+            { _id: getMongoDocId() },
             {
                 $set: {
                     payload: jsonString,
@@ -124,6 +160,7 @@ async function close() {
 }
 
 module.exports = {
+    loadDotEnvOnce,
     isConfigured,
     getDb,
     loadPayload,

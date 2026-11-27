@@ -1,11 +1,40 @@
 const fs = require('fs');
 const path = require('path');
 const zlib = require('zlib');
+const crypto = require('crypto');
 const chalk = require('chalk');
 const mongo = require('../core/mongo');
 
 const SNAPSHOT_COLLECTION = 'bot_session_snapshot';
 const PUSH_MIN_INTERVAL_MS = 3 * 60 * 1000; // throttle 3 menit agar 0 delay & hemat MongoDB
+
+/**
+ * KEAMANAN OPEN-SOURCE:
+ * Auto-sync / auto-restore session ke MongoDB Cloud DINONAKTIFKAN secara default!
+ * Hanya aktif jika pemilik bot secara eksplisit menyalakan:
+ *   1) MONGO_URI miliknya sendiri,
+ *   2) global.mongoSession === true (atau env MONGO_SESSION_SYNC=true), DAN
+ *   3) SESSION_SYNC_KEY pribadi minimal 6 karakter (di .env / settings.js).
+ * Dengan begitu, orang lain yang memakai script open-source akan SELALU diminta pairing nomor sendiri
+ * dan TIDAK PERNAH otomatis tersambung ke session WhatsApp milik developer/owner!
+ */
+function getSessionSyncSecret() {
+    if (typeof mongo.loadDotEnvOnce === 'function') mongo.loadDotEnvOnce();
+    return String(process.env.SESSION_SYNC_KEY || global.sessionSyncKey || '').trim();
+}
+
+function isCloudSessionSyncEnabled() {
+    if (!mongo.isConfigured()) return false;
+    const flagOn = global.mongoSession === true || String(process.env.MONGO_SESSION_SYNC || '').toLowerCase() === 'true';
+    if (!flagOn) return false;
+    return getSessionSyncSecret().length >= 6;
+}
+
+function buildNamespacedSlotId(slotKey = 'main') {
+    const secret = getSessionSyncSecret();
+    const hash = crypto.createHash('sha256').update(secret).digest('hex').slice(0, 20);
+    return `${slotKey}:${hash}`;
+}
 
 const lastPushByKey = new Map();
 const pushTimers = new Map();
@@ -181,15 +210,16 @@ function hasValidLocalSession(sessionDir = './session') {
  * session otomatis ter-restore selama perangkat di WhatsApp belum di-logout!
  */
 async function pushSessionSnapshotToCloud(slotKey = 'main', sessionDir = './session', force = false) {
-    if (!mongo.isConfigured()) return { ok: false, reason: 'no-mongo' };
+    if (!isCloudSessionSyncEnabled()) return { ok: false, reason: 'cloud-session-disabled' };
     if (!hasValidLocalSession(sessionDir)) return { ok: false, reason: 'no-valid-creds' };
+    const docId = buildNamespacedSlotId(slotKey);
 
     const now = Date.now();
-    const prev = lastPushByKey.get(slotKey) || 0;
+    const prev = lastPushByKey.get(docId) || 0;
     if (!force && (now - prev) < PUSH_MIN_INTERVAL_MS) {
         return { ok: true, skipped: true };
     }
-    if (pushInFlight.has(slotKey)) return pushInFlight.get(slotKey);
+    if (pushInFlight.has(docId)) return pushInFlight.get(docId);
 
     const task = (async () => {
         try {
@@ -204,9 +234,7 @@ async function pushSessionSnapshotToCloud(slotKey = 'main', sessionDir = './sess
             const jsonStr = JSON.stringify(filesMap);
             const gzBuf = zlib.gzipSync(Buffer.from(jsonStr, 'utf8'), { level: 6 });
 
-            // MongoDB doc limit 16MB — jaga agar selalu ringan (<10MB)
             if (gzBuf.length > 10 * 1024 * 1024) {
-                // Fallback simpan creds + pre-key + app-state-sync-key + sender-key saja
                 const essential = {};
                 for (const [k, v] of Object.entries(filesMap)) {
                     if (k === 'creds.json' || k.startsWith('pre-key-') || k.startsWith('app-state-sync-key-') || k.startsWith('sender-key-')) {
@@ -215,7 +243,7 @@ async function pushSessionSnapshotToCloud(slotKey = 'main', sessionDir = './sess
                 }
                 const slimGz = zlib.gzipSync(Buffer.from(JSON.stringify(essential), 'utf8'), { level: 6 });
                 await db.collection(SNAPSHOT_COLLECTION).updateOne(
-                    { _id: slotKey },
+                    { _id: docId },
                     {
                         $set: {
                             gzipBase64: slimGz.toString('base64'),
@@ -227,12 +255,12 @@ async function pushSessionSnapshotToCloud(slotKey = 'main', sessionDir = './sess
                     },
                     { upsert: true }
                 );
-                lastPushByKey.set(slotKey, Date.now());
+                lastPushByKey.set(docId, Date.now());
                 return { ok: true, fileCount: Object.keys(essential).length, sizeBytes: slimGz.length, botNumber: botNum };
             }
 
             await db.collection(SNAPSHOT_COLLECTION).updateOne(
-                { _id: slotKey },
+                { _id: docId },
                 {
                     $set: {
                         gzipBase64: gzBuf.toString('base64'),
@@ -244,22 +272,22 @@ async function pushSessionSnapshotToCloud(slotKey = 'main', sessionDir = './sess
                 },
                 { upsert: true }
             );
-            lastPushByKey.set(slotKey, Date.now());
+            lastPushByKey.set(docId, Date.now());
             return { ok: true, fileCount: Object.keys(filesMap).length, sizeBytes: gzBuf.length, botNumber: botNum };
         } catch (err) {
             console.warn(chalk.yellow(`[SessionSync:${slotKey}] Gagal sync ke cloud:`), err.message);
             return { ok: false, reason: err.message };
         } finally {
-            pushInFlight.delete(slotKey);
+            pushInFlight.delete(docId);
         }
     })();
 
-    pushInFlight.set(slotKey, task);
+    pushInFlight.set(docId, task);
     return task;
 }
 
 function scheduleCloudSessionPush(slotKey = 'main', sessionDir = './session', delayMs = 20000) {
-    if (!mongo.isConfigured()) return;
+    if (!isCloudSessionSyncEnabled()) return;
     if (pushTimers.has(slotKey)) return;
     const t = setTimeout(() => {
         pushTimers.delete(slotKey);
@@ -270,18 +298,19 @@ function scheduleCloudSessionPush(slotKey = 'main', sessionDir = './session', de
 }
 
 /**
- * Jika folder session lokal kosong (habis pindah panel / Railway restart / Termux baru),
- * otomatis tarik snapshot terakhir dari MongoDB Cloud!
+ * Hanya memulihkan session dari cloud bila pemilik bot menyalakan isCloudSessionSyncEnabled() + SESSION_SYNC_KEY pribadi.
+ * Secara default (open-source), fungsi ini langsung dilewati sehingga pengguna baru selalu diminta Pairing Code sendiri!
  */
 async function restoreSessionFromCloudIfMissing(slotKey = 'main', sessionDir = './session') {
     if (hasValidLocalSession(sessionDir)) return { restored: false, reason: 'local-exists' };
-    if (!mongo.isConfigured()) return { restored: false, reason: 'no-mongo' };
+    if (!isCloudSessionSyncEnabled()) return { restored: false, reason: 'cloud-session-disabled' };
+    const docId = buildNamespacedSlotId(slotKey);
 
     try {
         const db = await mongo.getDb();
         if (!db) return { restored: false, reason: 'db-unavailable' };
 
-        const doc = await db.collection(SNAPSHOT_COLLECTION).findOne({ _id: slotKey });
+        const doc = await db.collection(SNAPSHOT_COLLECTION).findOne({ _id: docId });
         if (!doc || typeof doc.gzipBase64 !== 'string') {
             return { restored: false, reason: 'no-cloud-snapshot' };
         }
@@ -307,7 +336,7 @@ async function restoreSessionFromCloudIfMissing(slotKey = 'main', sessionDir = '
         }
         console.log(
             chalk.green(
-                `[SessionSync:${slotKey}] Session otomatis dipulihkan dari MongoDB Cloud (${count} file, nomor +${doc.botNumber || '?'}) — langsung reconnect tanpa pairing!`
+                `[SessionSync:${slotKey}] Session pribadi dipulihkan dari Cloud (${count} file, +${doc.botNumber || '?'}).`
             )
         );
         return { restored: true, fileCount: count, botNumber: doc.botNumber || '' };
@@ -317,16 +346,14 @@ async function restoreSessionFromCloudIfMissing(slotKey = 'main', sessionDir = '
     }
 }
 
-/**
- * Hapus snapshot cloud saat bot benar-benar di-logout (kode 401 / loggedOut dari WA Linked Devices).
- */
 async function clearCloudSession(slotKey = 'main') {
-    if (!mongo.isConfigured()) return false;
+    if (!isCloudSessionSyncEnabled()) return false;
+    const docId = buildNamespacedSlotId(slotKey);
     try {
         const db = await mongo.getDb();
         if (!db) return false;
-        await db.collection(SNAPSHOT_COLLECTION).deleteOne({ _id: slotKey });
-        lastPushByKey.delete(slotKey);
+        await db.collection(SNAPSHOT_COLLECTION).deleteOne({ _id: docId });
+        lastPushByKey.delete(docId);
         return true;
     } catch (_) {
         return false;
@@ -334,17 +361,21 @@ async function clearCloudSession(slotKey = 'main') {
 }
 
 async function getCloudSessionStatus(slotKey = 'main') {
-    if (!mongo.isConfigured()) return { configured: false, exists: false };
+    if (!isCloudSessionSyncEnabled()) {
+        return { configured: false, enabled: false, exists: false };
+    }
+    const docId = buildNamespacedSlotId(slotKey);
     try {
         const db = await mongo.getDb();
-        if (!db) return { configured: true, connected: false, exists: false };
+        if (!db) return { configured: true, enabled: true, connected: false, exists: false };
         const doc = await db.collection(SNAPSHOT_COLLECTION).findOne(
-            { _id: slotKey },
+            { _id: docId },
             { projection: { fileCount: 1, sizeBytes: 1, botNumber: 1, updatedAt: 1 } }
         );
-        if (!doc) return { configured: true, connected: true, exists: false };
+        if (!doc) return { configured: true, enabled: true, connected: true, exists: false };
         return {
             configured: true,
+            enabled: true,
             connected: true,
             exists: true,
             fileCount: doc.fileCount || 0,
@@ -353,7 +384,7 @@ async function getCloudSessionStatus(slotKey = 'main') {
             updatedAt: doc.updatedAt || null
         };
     } catch (_) {
-        return { configured: true, connected: false, exists: false };
+        return { configured: true, enabled: true, connected: false, false: true, exists: false };
     }
 }
 
@@ -411,6 +442,7 @@ function restoreSessionFromZipBuffer(zipBuf, sessionDir = './session') {
 }
 
 module.exports = {
+    isCloudSessionSyncEnabled,
     buildZipBuffer,
     parseZipBuffer,
     hasValidLocalSession,

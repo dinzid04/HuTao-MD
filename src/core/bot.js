@@ -584,7 +584,7 @@ async function _startBotInner() {
     let verifiedNumber = '';
 
     let authBundle = null;
-    if (mongo.isConfigured() && global.mongoSession !== false) {
+    if (mongo.isConfigured() && global.mongoSession === true) {
         try {
             authBundle = await useMongoAuthState('main', 'session');
         } catch (e) {
@@ -601,13 +601,15 @@ async function _startBotInner() {
         global._authSessionMode = 'mongodb';
         console.log(chalk.green('[Session] Menggunakan MongoDB Cloud Auth State'));
     } else {
-        // Jika pindah panel / Railway restart & folder session kosong, otomatis pulihkan dari MongoDB Cloud
-        // (Hanya aktif bila perangkat WA sebelumnya belum di-logout!)
-        await sessionSync.restoreSessionFromCloudIfMissing('main', 'session').catch(() => {});
+        if (sessionSync.isCloudSessionSyncEnabled()) {
+            await sessionSync.restoreSessionFromCloudIfMissing('main', 'session').catch(() => {});
+        }
         ({ state, saveCreds } = await useMultiFileAuthState('session'));
         clearAuthSession = async () => {
             try { fs.rmSync('session', { recursive: true, force: true }); } catch (_) {}
-            await sessionSync.clearCloudSession('main').catch(() => {});
+            if (sessionSync.isCloudSessionSyncEnabled()) {
+                await sessionSync.clearCloudSession('main').catch(() => {});
+            }
         };
         global._authSessionMode = 'local';
     }
