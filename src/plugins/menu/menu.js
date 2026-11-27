@@ -11,6 +11,8 @@ module.exports = {
             const sub = (args[0] || '').toLowerCase();
             if (sub === 'group' || sub === 'grup' || sub === 'gc') {
                 await menureply(global.menugroup);
+            } else if (sub === 'jagagrup' || sub === 'jaga' || sub === 'anti' || sub === 'guard' || sub === 'pengamanan') {
+                await menureply(global.menujagagrup);
             } else if (sub === 'owner' || sub === 'creator') {
                 await menureply(global.menuowner);
             } else if (sub === 'list' || sub === 'store' || sub === 'toko') {

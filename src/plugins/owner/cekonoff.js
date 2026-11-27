@@ -1,5 +1,7 @@
+const { generateWAMessageFromContent, proto } = require('@whiskeysockets/baileys');
 const limitSvc = require('../../services/limit');
 const scheduler = require('../../core/scheduler');
+const jagaGrup = require('../group/jagagrup');
 
 module.exports = {
     name: 'cekonoff',
@@ -17,6 +19,8 @@ module.exports = {
         const badge = (v) => (v ? '🟢 ON' : '🔴 OFF');
         const settings = global.db?.settings || {};
         const sections = [];
+        const botButtonsRows = [];
+        const groupDropdownSections = [];
 
         if (isCreator) {
             const sewaCfg = botCtx.getSection('sistemsewa', Dinz);
@@ -31,20 +35,20 @@ module.exports = {
                 : (settings.prefixMode === 'noprefix' ? 'No Prefix' : 'Multi Prefix');
 
             const botToggles = [
-                ['Mode Public', settings.isPublic !== false, settings.isPublic !== false ? '🟢 PUBLIC' : '🔴 SELF'],
-                ['Auto Read', settings.autoread === true],
-                ['Auto Typing', settings.autotyping === true],
-                ['Auto Read SW', settings.readsw === true],
-                ['Audio Menu', settings.audiomenu !== false],
-                ['Level Up Notif (Global)', settings.levelupNotif === true],
-                ['Sistem Limit', limitOn],
-                ['Sistem Sewa Grup', sewaOn],
-                ['Auto Backup DB', backupCfg.enabled === true, backupCfg.enabled ? `🟢 ON (${backupCfg.intervalLabel || '6 jam'})` : '🔴 OFF'],
-                ['Notif Update SC GitHub', settings.notifUpdate === true]
+                { name: 'Mode Public', val: settings.isPublic !== false, custom: settings.isPublic !== false ? '🟢 PUBLIC' : '🔴 SELF', toggleCmd: settings.isPublic !== false ? `${pfx}self` : `${pfx}public` },
+                { name: 'Auto Read', val: settings.autoread === true, toggleCmd: `${pfx}autoread ${settings.autoread === true ? 'off' : 'on'}` },
+                { name: 'Auto Typing', val: settings.autotyping === true, toggleCmd: `${pfx}autotyping ${settings.autotyping === true ? 'off' : 'on'}` },
+                { name: 'Auto Read SW', val: settings.readsw === true, toggleCmd: `${pfx}readsw ${settings.readsw === true ? 'off' : 'on'}` },
+                { name: 'Audio Menu', val: settings.audiomenu !== false, toggleCmd: `${pfx}setaudiomenu ${settings.audiomenu !== false ? 'off' : 'on'}` },
+                { name: 'Level Up Notif (Global)', val: settings.levelupNotif === true, toggleCmd: `${pfx}levelupnotif ${settings.levelupNotif === true ? 'off' : 'on'}` },
+                { name: 'Sistem Limit', val: limitOn, toggleCmd: `${pfx}setlimit ${limitOn ? 'off' : 'on'}` },
+                { name: 'Sistem Sewa Grup', val: sewaOn, toggleCmd: `${pfx}sistemsewa ${sewaOn ? 'off' : 'on'}` },
+                { name: 'Auto Backup DB', val: backupCfg.enabled === true, custom: backupCfg.enabled ? `🟢 ON (${backupCfg.intervalLabel || '6 jam'})` : '🔴 OFF', toggleCmd: `${pfx}autobackup ${backupCfg.enabled ? 'off' : 'on'}` },
+                { name: 'Notif Update SC GitHub', val: settings.notifUpdate === true, toggleCmd: `${pfx}notifupdate ${settings.notifUpdate === true ? 'off' : 'on'}` }
             ];
 
-            const botOnCount = botToggles.filter((x) => x[1]).length;
-            const botLines = botToggles.map(([name, val, custom]) => `> ◦ *${name} :* ${custom || badge(val)}`);
+            const botOnCount = botToggles.filter((x) => x.val).length;
+            const botLines = botToggles.map((item) => `> ◦ *${item.name} :* ${item.custom || badge(item.val)}`);
             botLines.push(`> ◦ *Mode Prefix :* \`${prefixMode}\``);
             botLines.push(`> ◦ *Fitur Dimatikan :* ${disabledCmds.length > 0 ? `🔴 ${disabledCmds.length} (${disabledCmds.slice(0, 8).join(', ')}${disabledCmds.length > 8 ? ', ...' : ''})` : '🟢 0 (Semua Aktif)'}`);
 
@@ -52,66 +56,120 @@ module.exports = {
                 `\`⚙️ STATUS ON/OFF BOT (${botOnCount}/${botToggles.length} ON)\`\n` +
                 botLines.join('\n')
             );
+
+            for (const item of botToggles) {
+                botButtonsRows.push({
+                    title: `${item.val ? '🟢' : '🔴'} ${item.name}`,
+                    description: `Tap untuk ubah (${item.toggleCmd})`,
+                    id: item.toggleCmd
+                });
+            }
         }
 
         if (m.isGroup) {
             const g = global.db?.groups?.[m.chat] || {};
-            const groupItems = [
-                ['Mute Grup', g.mute === true],
-                ['Welcome', g.welcome === true],
-                ['Left', g.left === true],
-                ['Anti Link (Kick)', g.antilink === true],
-                ['Anti Link (Hapus)', g.antilink2 === true],
-                ['Anti Link WA', g.antilinkWa === true],
-                ['Anti Link All', g.antilinkAll === true],
-                ['Anti Hidetag', g.antihidetag === true],
-                ['Anti Badword', g.antibadword === true],
-                ['Anti SWGC (Hapus)', g.antiswgc === true || g.antiswgc === 'delete'],
-                ['Anti SWGC (Kick)', g.antiswgc_kick === true || g.antiswgc === 'kick'],
-                ['Anti Tag SW (Hapus)', g.antitagsw === true || g.antitagsw === 'delete'],
-                ['Anti Tag SW (Kick)', g.antitagswkick === true || g.antitagsw === 'kick'],
-                ['Anti Sticker', g.antisticker === true],
-                ['Anti Document', g.antidocument === true],
-                ['Anti Virtex', g.antivirtex === true],
-                ['Anti Spam', g.antispam === true],
-                ['Anti Judol', g.antijudol === true],
-                ['Anti Phising', g.antiphising === true],
-                ['Level Up Notif Grup', g.levelupNotif === true],
+            const groupName = m.metadata?.subject || 'Grup Ini';
+            const catList = jagaGrup.GUARD_CATEGORIES || [];
+            let onTotal = 0;
+            let allTotal = 0;
+
+            const grpCatTexts = [];
+            for (const cat of catList) {
+                const lines = [];
+                const rows = [];
+                for (const it of cat.items) {
+                    const active = jagaGrup.isFlagActive(g, it.key);
+                    allTotal++;
+                    if (active) onTotal++;
+                    lines.push(`> ◦ ${active ? '🟢' : '🔴'} ${it.name} (\`${pfx}${it.cmd}\`)`);
+                    rows.push({
+                        title: `${active ? '🟢' : '🔴'} ${it.name}`,
+                        description: `[${active ? 'ON -> Tap Matikan' : 'OFF -> Tap Aktifkan'}] ${it.desc}`,
+                        id: `${pfx}${it.cmd} ${active ? 'off' : 'on'}`
+                    });
+                }
+                grpCatTexts.push(`*${cat.title}*\n${lines.join('\n')}`);
+                groupDropdownSections.push({ title: cat.title, rows });
+            }
+
+            const extraItems = [
                 ['Auto Open Grup', g.autoOpen === true, g.autoOpen ? `🟢 ON (${g.autoOpenTime || '06:00'} WIB)` : '🔴 OFF'],
                 ['Auto Close Grup', g.autoClose === true, g.autoClose ? `🟢 ON (${g.autoCloseTime || '00:00'} WIB)` : '🔴 OFF'],
                 ['Slowmode', Number(g.slowmode) > 0, Number(g.slowmode) > 0 ? `🟢 ON (${g.slowmode} detik)` : '🔴 OFF']
             ];
-
-            const activeList = groupItems.filter((x) => x[1]);
-            const inactiveList = groupItems.filter((x) => !x[1]);
-
-            const groupName = m.metadata?.subject || 'Grup Ini';
-            const grpLines = [
-                `\`👥 STATUS ON/OFF GRUP (${activeList.length}/${groupItems.length} ON)\``,
-                `> ◦ *Grup :* ${groupName}`
-            ];
-
-            if (activeList.length > 0) {
-                grpLines.push('', '*🟢 Sedang Aktif (ON):*');
-                for (const [name, , custom] of activeList) {
-                    grpLines.push(`> • ${name} : ${custom || '🟢 ON'}`);
-                }
-            } else {
-                grpLines.push('', '*🟢 Sedang Aktif (ON):*\n> • _(tidak ada yang aktif)_');
+            for (const [, val] of extraItems) {
+                allTotal++;
+                if (val) onTotal++;
             }
+            grpCatTexts.push(
+                `*⏰ JADWAL & SLOWMODE*\n` +
+                extraItems.map(([n, , c]) => `> ◦ ${c} — ${n}`).join('\n')
+            );
 
-            if (inactiveList.length > 0) {
-                grpLines.push('', '*🔴 Nonaktif (OFF):*');
-                grpLines.push(`> ${inactiveList.map(([name]) => name).join(' • ')}`);
-            }
-
-            sections.push(grpLines.join('\n'));
+            sections.push(
+                `\`🛡️ STATUS JAGA GRUP (${onTotal}/${allTotal} ON)\`\n` +
+                `> ◦ *Grup :* ${groupName}\n\n` +
+                grpCatTexts.join('\n\n')
+            );
         }
 
         const tips = isCreator
-            ? `\n\n💡 *Kontrol Cepat:*\n> ◦ Grup: \`${pfx}on <fitur>\` / \`${pfx}off <fitur>\`\n> ◦ Bot: \`${pfx}autoread on/off\`, \`${pfx}notifupdate on/off\`, \`${pfx}setlimit on/off\`, \`${pfx}sistemsewa on/off\`, \`${pfx}autobackup on/off\`, \`${pfx}togglefitur <cmd>\``
-            : `\n\n💡 *Kontrol Grup:* ketik \`${pfx}on <fitur>\` atau \`${pfx}off <fitur>\``;
+            ? `\n\n💡 *Kontrol Cepat:* Tap tombol dropdown di bawah untuk langsung ubah ON/OFF, atau ketik \`${pfx}jagagrup\` untuk panel khusus grup.`
+            : `\n\n💡 *Kontrol Cepat:* Tap tombol dropdown di bawah atau ketik \`${pfx}jagagrup\`.`;
 
-        return Reply(`${sections.join('\n\n')}${tips}`);
+        const fullText = `${sections.join('\n\n')}${tips}`;
+
+        const buttons = [];
+        if (m.isGroup && groupDropdownSections.length > 0) {
+            buttons.push({
+                name: 'single_select',
+                buttonParamsJson: JSON.stringify({
+                    title: '🛡️ Atur Jaga Grup',
+                    sections: groupDropdownSections
+                })
+            });
+        }
+        if (isCreator && botButtonsRows.length > 0) {
+            buttons.push({
+                name: 'single_select',
+                buttonParamsJson: JSON.stringify({
+                    title: '⚙️ Atur ON/OFF Bot',
+                    sections: [{ title: 'Pengaturan Global Bot', rows: botButtonsRows }]
+                })
+            });
+        }
+        if (m.isGroup) {
+            buttons.push({
+                name: 'quick_reply',
+                buttonParamsJson: JSON.stringify({
+                    display_text: '🛡️ Panel Jaga Grup',
+                    id: `${pfx}jagagrup`
+                })
+            });
+        }
+
+        if (buttons.length > 0) {
+            try {
+                const identity = botCtx?.getBotIdentity ? botCtx.getBotIdentity(Dinz) : {};
+                const botname = identity.botname || global.botname || 'HuTao - MD';
+                const msg = await generateWAMessageFromContent(m.chat, {
+                    viewOnceMessage: {
+                        message: {
+                            messageContextInfo: { deviceListMetadata: {}, deviceListMetadataVersion: 2 },
+                            interactiveMessage: proto.Message.InteractiveMessage.create({
+                                body: proto.Message.InteractiveMessage.Body.create({ text: fullText }),
+                                footer: proto.Message.InteractiveMessage.Footer.create({ text: `⚙️ Kontrol Status ON/OFF • ${botname}` }),
+                                header: proto.Message.InteractiveMessage.Header.create({ title: '', hasMediaAttachment: false }),
+                                nativeFlowMessage: proto.Message.InteractiveMessage.NativeFlowMessage.create({ buttons })
+                            })
+                        }
+                    }
+                }, { quoted: m });
+                await Dinz.relayMessage(m.chat, msg.message, { messageId: msg.key.id, AI: false });
+                return true;
+            } catch (_) {}
+        }
+
+        return Reply(fullText);
     }
 };

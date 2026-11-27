@@ -19,54 +19,64 @@ module.exports = {
 
         const explicitPlaylist = /\b(playlist|pl)\b/i.test(targetUrl);
         let cleanedUrlInput = targetUrl.replace(/(?:^|\s)(playlist|pl)(?=\s|$)/gi, ' ').trim();
-        const cntMatch = cleanedUrlInput.match(/(?:^|\s)([1-9]|10)(?=\s+https?:\/\/|\s*$)/i);
-        const plCount = cntMatch ? parseInt(cntMatch[1], 10) : 5;
+        const cntMatch = cleanedUrlInput.match(/(?:^|\s)([1-9]|1[0-5])(?=\s+https?:\/\/|\s*$)/i);
+        const plCount = cntMatch ? parseInt(cntMatch[1], 10) : 10;
         if (cntMatch) cleanedUrlInput = cleanedUrlInput.replace(cntMatch[0], ' ').trim();
         const cleanUrl = cleanedUrlInput || targetUrl.trim();
 
         await Dinz.sendMessage(m.chat, { react: { text: '⏳', key: m.key } }).catch(() => {});
 
         if (ytdlp.isPlaylistUrl(cleanUrl, { allowWatchWithList: explicitPlaylist })) {
+            let zipPath = '';
             try {
-                const pl = await ytdlp.getPlaylistInfo(cleanUrl, { maxItems: Math.min(10, Math.max(1, plCount)) });
+                const takeCount = Math.min(15, Math.max(1, plCount));
+                const pl = await ytdlp.getPlaylistInfo(cleanUrl, { maxItems: takeCount });
                 const preview = pl.entries
                     .map((e, i) => `> ${i + 1}. ${String(e.title || 'Lagu').slice(0, 50)} (${e.duration || '-'})`)
                     .join('\n');
                 await Reply(
-                    `\`⌜ YouTube Playlist MP3 ⌟\`\n` +
+                    `\`⌜ YouTube Playlist MP3 -> ZIP Dokumen ⌟\`\n` +
                     `> ◦ *Playlist :* ${pl.title}\n` +
                     `> ◦ *Mengunduh :* ${pl.entries.length} dari ${pl.totalCount} lagu\n\n` +
                     `${preview}\n\n` +
-                    `_⏳ Mengunduh & mengirim lagu satu per satu..._`
+                    `_⚡ Mengunduh semua lagu secara paralel lalu dikemas menjadi 1 dokumen ZIP..._`
                 );
-                let sent = 0;
-                const failed = [];
-                for (const item of pl.entries) {
-                    let fPath = '';
-                    try {
-                        const res = await ytdlp.downloadAudioToFile(item.url, { maxFilesize: '100M' });
-                        fPath = res.filePath;
-                        const safeName = String(res.title || item.title || 'audio').replace(/[/\\?%*:|"<>]/g, '').trim().slice(0, 70) || 'audio';
-                        await Dinz.sendMessage(m.chat, {
-                            audio: { url: res.filePath },
-                            mimetype: 'audio/mpeg',
-                            fileName: `${safeName}.mp3`
-                        }, { quoted: m });
-                        sent++;
-                    } catch (eItem) {
-                        failed.push(`${item.index}. ${String(item.title || '').slice(0, 30)}`);
-                    } finally {
-                        if (fPath) ytdlp.cleanupFile(fPath);
-                    }
-                    await new Promise((r) => setTimeout(r, 1200));
-                }
-                if (sent > 0) addLimit(m.sender, isCreator);
-                await Dinz.sendMessage(m.chat, { react: { text: sent > 0 ? '✅' : '❌', key: m.key } }).catch(() => {});
-                const failTxt = failed.length ? `\n> ◦ Gagal: ${failed.join(', ')}` : '';
-                return Reply(`✅ *Playlist MP3 Selesai!* Terkirim *${sent}/${pl.entries.length}* lagu.${failTxt}`);
+
+                const zipRes = await ytdlp.downloadPlaylistToZip(cleanUrl, {
+                    mode: 'audio',
+                    maxItems: takeCount,
+                    concurrency: 3,
+                    playlistInfo: pl
+                });
+                zipPath = zipRes.zipPath;
+
+                const okList = zipRes.successItems
+                    .map((it, idx) => `> ${idx + 1}. ${String(it.title).slice(0, 48)} (${it.duration} • ${it.size})`)
+                    .join('\n');
+                const failTxt = zipRes.failedItems.length
+                    ? `\n\n⚠️ *Gagal (${zipRes.failedItems.length}):* ${zipRes.failedItems.map((f) => `#${f.index}`).join(', ')}`
+                    : '';
+
+                await Dinz.sendMessage(m.chat, {
+                    document: { url: zipRes.zipPath },
+                    mimetype: 'application/zip',
+                    fileName: zipRes.fileName,
+                    caption:
+                        `\`⌜ Playlist MP3 ZIP Siap! 🎧📦 ⌟\`\n` +
+                        `> ◦ *Playlist :* ${pl.title}\n` +
+                        `> ◦ *Isi Arsip :* ${zipRes.successItems.length}/${zipRes.requestedCount} lagu MP3\n` +
+                        `> ◦ *Ukuran ZIP :* ${zipRes.formattedSize}\n\n` +
+                        `*📑 Daftar Lagu:*\n${okList}${failTxt}`
+                }, { quoted: m });
+
+                addLimit(m.sender, isCreator);
+                await Dinz.sendMessage(m.chat, { react: { text: '✅', key: m.key } }).catch(() => {});
+                return true;
             } catch (plErr) {
                 await Dinz.sendMessage(m.chat, { react: { text: '❌', key: m.key } }).catch(() => {});
                 return Reply(`❌ Gagal mengunduh playlist MP3: ${plErr?.message || plErr}`);
+            } finally {
+                if (zipPath) ytdlp.cleanupFile(zipPath);
             }
         }
 

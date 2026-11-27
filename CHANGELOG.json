@@ -1,21 +1,18 @@
 {
-  "version": "1.1.0",
+  "version": "1.2.0",
   "updatedAt": "2026-11-27",
-  "summary": "Allmenu 1 pesan, fix animasi Sticker Pack, Auto-Update SC GitHub, Playlist yt-dlp, Owner Add-Resource & Cek Status ON/OFF",
+  "summary": "Allmenu 1 pesan vertikal rapi, Playlist YT -> 1 ZIP Dokumen, Panel Button Jaga Grup, .getsw Status WA, & .kirimch 2 versi audio + PTV/Media",
   "added": [
-    "Auto-Update SC langsung dari GitHub (.updatesc, .cekupdate, .notifupdate on/off — default OFF) dengan log fitur baru & perbaikan serta perlindungan penuh untuk renamean, settings.js, dan database",
-    "Dukungan unduh Playlist YouTube (audio MP3 & video dengan pilihan resolusi) lewat .ytdlp, .ytdlpa, .ytplaylist, .ytmp3, dan .ytmp4",
-    "Fitur Owner tambah/kurang resource user (.addmoney, .addbank, .addexp, .addlevel, .adddiamond, .addgold, .addpotion, .additem, .delmoney, .setlevel, dll)",
-    "Fitur khusus cek semua pengaturan ON/OFF bot global & grup dalam satu kartu rapi (.cekonoff / .statusonoff)"
+    "Panel Jaga Grup interaktif berbasis tombol dropdown per kategori (.jagagrup / .panelgrup) + kategori Menu Jaga Grup tersendiri di listmenu & 19 command langsung (.antilink, .antispam, .antivirtex, .antijudol, .antiphising, .welcome, dll)",
+    "Fitur .getsw <nomor> & .listsw untuk menangkap dan mengambil Status WhatsApp (foto, video, audio, teks) dari kontak bot dalam 24 jam terakhir",
+    "Fitur .kirimch / .sendch / .fwdch untuk mengirim Audio, PTV (video bulat), Video, Foto, Stiker, Dokumen, & Teks ke Saluran WA (lengkap dengan pengingat wajib Admin CH + 2 versi audio: Audio Biasa & Audio Forward CH dengan edit Nama CH custom sebelum dikirim!)",
+    "Tambahan command .autotyping on/off dan .readsw on/off serta tombol interaktif pada .cekonoff"
   ],
   "fixed": [
-    "Allmenu kini menyatu dalam 1 pesan penuh tanpa terpisah halaman dan seluruh baris tetap rapi kena blockquote (>)",
-    "Perbaikan stiker GIF/animasi di native WhatsApp Sticker Pack agar tetap bergerak mulus (lossless RIFF EXIF + konversi 512x512 WebP)",
-    "Perbaikan input resolusi .ytmp4 tanpa huruf 'p' (contoh: .ytmp4 1080 <url>) serta penjelasan jelas saat video kena geo-block negara",
-    "Perbaikan bug target nomor pada .addlimit saat memakai nomor HP langsung",
-    "Stabilisasi respon grup Baileys (cache groupMetadata anti rate-overlimit, fix Stream Errored ack, auto-heal Bad MAC)"
+    "Allmenu kini 100% vertikal ke bawah (1 command per baris, tidak kepinggir & tidak dipisah halaman) memakai garis vertikal bersih bebas limit 500 blockquote WhatsApp",
+    "Unduh Playlist YouTube (.ytplaylist, .ytdlpa, .ytmp3, .ytmp4) kini mengunduh semua item secara paralel dan mengemasnya ke dalam 1 file Dokumen .ZIP agar jauh lebih cepat & tidak spam chat"
   ],
   "changed": [
-    "Kompresi obfuscate yt-dlp opensource dari 17,1 MB menjadi 2,17 MB (preset ghost+minify) sehingga startup dan RAM panel lebih ringan"
+    "Pembaruan streaming ZIP builder hemat RAM (<2 MB) untuk bundling playlist audio/video hingga 15 lagu atau 8 video dalam satu arsip"
   ]
 }

@@ -424,6 +424,10 @@ async function processSingleUpsert(Dinz, message, msg, store) {
     const type = msg.message ? (getContentType(msg.message) || Object.keys(msg.message)[0]) : '';
 
     if (msg.key?.remoteJid === 'status@broadcast') {
+        try {
+            const statusStore = require('../services/status-store');
+            statusStore.captureStatus(Dinz, msg, store);
+        } catch (_) {}
         if (global.db.settings.readsw === true) {
             await Dinz.readMessages([msg.key]).catch(() => {});
         }

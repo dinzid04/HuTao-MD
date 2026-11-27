@@ -128,7 +128,17 @@ global.menugroup = buildMenuBlock('Menu Group', [
     'resetwarn 🅐', 'setdeskgc 🅐', 'setnamegc 🅐', 'addbadword 🅐', 'delbadword 🅐',
     'hapusabsen 🅐', 'mulaiabsen 🅐', 'mutemember 🅐', 'setwelcome 🅐',
     'listbadword 🅐', 'resetlinkgc 🅐', 'levelupnotif 🅐', 'setrulesgrup 🅐',
-    'sistemsewa 🅞', 'unmutemember 🅐', 'settheme 🅐', 'cekonoff 🅐'
+    'sistemsewa 🅞', 'unmutemember 🅐', 'settheme 🅐', 'cekonoff 🅐', 'jagagrup 🅐'
+]);
+
+global.menujagagrup = buildMenuBlock('Menu Jaga Grup', [
+    'jagagrup 🅐', 'panelgrup 🅐', 'cekonoff 🅐', 'on 🅐', 'off 🅐',
+    'antilink 🅐', 'antilink2 🅐', 'antilinkwa 🅐', 'antilinkall 🅐',
+    'antispam 🅐', 'antivirtex 🅐', 'antisticker 🅐', 'antidocument 🅐',
+    'antihidetag 🅐', 'antibadword 🅐', 'antiswgc 🅐', 'antiswgckick 🅐',
+    'antitagsw 🅐', 'antitagswkick 🅐', 'antijudol 🅐', 'antiphising 🅐',
+    'welcome 🅐', 'left 🅐', 'levelupgrup 🅐', 'mutegrup 🅐',
+    'slowmode 🅐', 'setopen 🅐', 'setclose 🅐', 'addbadword 🅐', 'delbadword 🅐'
 ]);
 
 global.menuislami = buildMenuBlock('Menu Islami', [
@@ -172,6 +182,8 @@ global.menuowner = buildMenuBlock('Menu Owner', [
     'levelupnotif 🅞', 'listgrubopen 🅞', 'reloadplugin 🅞', 'listgrubclose 🅞',
     'resetlimitall 🅞', 'setlimitharian 🅞',
     'updatesc 🅞', 'cekupdate 🅞', 'notifupdate 🅞', 'cekonoff 🅞',
+    'autotyping 🅞', 'readsw 🅞', 'kirimch 🅞', 'sendch 🅞', 'fwdch 🅞',
+    'getsw 🅞', 'listsw 🅞',
     'addmoney 🅞', 'delmoney 🅞', 'addbank 🅞', 'addexp 🅞', 'addlevel 🅞',
     'setlevel 🅞', 'adddiamond 🅞', 'addgold 🅞', 'addpotion 🅞', 'additem 🅞', 'delitem 🅞'
 ]);
@@ -261,7 +273,7 @@ global.menugc = global.menuowner;
 global.mainmenu = buildMenuBlock('Daftar Menu', [
     'allmenu', 'menu ai', 'menu am', 'menu enc', 'menu fun', 'menu jpm', 'menu lid',
     'menu rpg', 'menu call', 'menu clan', 'menu game', 'menu join', 'menu rich',
-    'menu audio', 'menu extra', 'menu group', 'menu maker', 'menu owner', 'menu setup', 'menu stalk',
+    'menu audio', 'menu extra', 'menu group', 'menu jagagrup', 'menu maker', 'menu owner', 'menu setup', 'menu stalk',
     'menu store', 'menu tools', 'menu cloner', 'menu ephoto', 'menu islami', 'menu search',
     'menu stiker', 'menu jadibot', 'menu premium', 'menu primbon', 'menu download',
     'menu cpanel v1', 'menu cpanel v2', 'menu cpanel v3'
@@ -284,6 +296,7 @@ global.allmenu = [
     global.menufun,
     global.menugame,
     global.menugroup,
+    global.menujagagrup,
     global.menuislami,
     global.menujadibot,
     global.menujpm,

@@ -688,6 +688,44 @@ const handler = async (Dinz, m, chatUpdate, store) => {
         }
 
         if (!isCmd && isCreator) {
+            try {
+                const chSender = require('../services/channel-sender');
+                const chDraft = chSender.getDraft(Dinz, m.chat, senderNumber);
+                if (chDraft && chDraft.step === 'wait_ch_name' && chDraft.lastMsgId !== m.key.id && body && typeof body === 'string' && body.trim().length > 0 && !m.isBaileys) {
+                    const inputName = body.trim();
+                    if (['batal', 'cancel'].includes(inputName.toLowerCase())) {
+                        chSender.clearDraft(Dinz, m.chat, senderNumber);
+                        return Reply('❌ Pengiriman audio forward ke saluran dibatalkan.');
+                    }
+                    if (!chDraft.mediaPath || !fs.existsSync(chDraft.mediaPath)) {
+                        chSender.clearDraft(Dinz, m.chat, senderNumber);
+                        return Reply('❌ Draft audio sudah kadaluarsa. Silakan ulangi perintah kirimch.');
+                    }
+                    await Dinz.sendMessage(m.chat, { react: { text: '⏳', key: m.key } }).catch(() => {});
+                    await Reply(`⏳ Mengirim audio forward dengan nama CH *"${inputName}"* ke saluran *${chDraft.chInfo.name}*...\n_⚠️ Pastikan nomor bot sudah jadi Admin di saluran tersebut._`);
+                    try {
+                        const buf = fs.readFileSync(chDraft.mediaPath);
+                        await chSender.sendAudioToChannel(Dinz, chDraft.chInfo.id, buf, {
+                            mode: 'forward',
+                            customChName: inputName,
+                            asFileMp3: chDraft.asFileMp3,
+                            extHint: chDraft.extHint || 'mp3'
+                        });
+                        chSender.clearDraft(Dinz, m.chat, senderNumber);
+                        await Dinz.sendMessage(m.chat, { react: { text: '✅', key: m.key } }).catch(() => {});
+                        return Reply(
+                            `\`✅ AUDIO FORWARD CH TERKIRIM\`\n` +
+                            `> ◦ *Saluran Tujuan :* ${chDraft.chInfo.name}\n` +
+                            `> ◦ *Nama CH Custom :* ${inputName}\n` +
+                            `> ◦ *Format :* ${chDraft.asFileMp3 ? 'Audio MP3' : 'Voice Note (Opus)'}`
+                        );
+                    } catch (chErr) {
+                        chSender.clearDraft(Dinz, m.chat, senderNumber);
+                        await Dinz.sendMessage(m.chat, { react: { text: '❌', key: m.key } }).catch(() => {});
+                        return Reply(`❌ Gagal mengirim audio ke saluran *${chDraft.chInfo.name}*: ${chErr?.message || chErr}\n\n⚠️ *Pastikan nomor bot sudah menjadi Admin di saluran tersebut!*`);
+                    }
+                }
+            } catch (_) {}
 
             if (global._jpmDirectTarget?.[m.sender]) {
                 const { targetJid, groupSubject } = global._jpmDirectTarget[m.sender];

@@ -74,6 +74,7 @@ const MENU_CATEGORIES = [
     { group: 'main', title: 'Menu Setup Bot', emoji: '⚙️', cmd: 'menu-setup', desc: 'Rename Bot, Owner, Thumb, Pay & Audio' },
     { group: 'main', title: 'Menu Setup Cloner', emoji: '🧩', cmd: 'menu-cloner', desc: 'Rename & Setup Terisolasi Bot Clone' },
     { group: 'main', title: 'Menu Group', emoji: '👥', cmd: 'menu-group', desc: 'Manajemen Grup, CekOnline & Sider' },
+    { group: 'main', title: 'Menu Jaga Grup', emoji: '🛡️', cmd: 'menu-jagagrup', desc: 'Panel Button Anti-Link, Spam, Virtex, Judol, SWGC' },
     { group: 'main', title: 'Menu Store', emoji: '🏪', cmd: 'menu-store', desc: 'List Produk, QRIS Dinamis & Kasir' },
     { group: 'main', title: 'Menu Cpanel V1', emoji: '🖥️', cmd: 'menu-cpanel-v1', desc: 'Pterodactyl Server V1' },
     { group: 'main', title: 'Menu Cpanel V2', emoji: '🖥️', cmd: 'menu-cpanel-v2', desc: 'Pterodactyl Server V2' },
@@ -300,8 +301,9 @@ function sortMenuItems(items) {
 }
 
 // WhatsApp membatasi maksimal ~500 baris blockquote (`> `) dalam 1 pesan.
-// Agar allmenu tetap menyatu dalam 1 pesan penuh tanpa bug `>` mentah,
-// jika total baris `> ` melebihi 450 maka beberapa command dipadatkan per baris (2-3 kolom).
+// Agar allmenu tetap menyatu dalam 1 pesan penuh, 100% vertikal ke bawah (1 command per baris)
+// tanpa dipisah halaman & tanpa dipadatkan ke samping, jika total baris melebihi 450
+// maka prefix daftar command beralih ke garis vertikal bersih `│ ◦` (bebas limit blockquote WA).
 const MAX_WA_QUOTE_LINES = 450;
 
 function countQuoteLines(text) {
@@ -309,40 +311,17 @@ function countQuoteLines(text) {
     return matches ? matches.length : 0;
 }
 
-function buildBlockLines(sortedItems, activePrefix, itemsPerLine = 1) {
-    if (itemsPerLine <= 1) {
-        return sortedItems.map((item) => {
-            if (item.type === 'sub') return `> *${toSmallCaps(item.text)}*`;
-            return formatMenuItemLine(item.text, activePrefix);
-        }).filter(Boolean);
-    }
-
-    const lines = [];
-    let row = [];
-    const flushRow = () => {
-        if (!row.length) return;
-        lines.push(`> ◦ ${row.join('  ·  ')}`);
-        row = [];
-    };
-
-    for (const item of sortedItems) {
-        if (item.type === 'sub') {
-            flushRow();
-            lines.push(`> *${toSmallCaps(item.text)}*`);
-            continue;
-        }
+function buildBlockLines(sortedItems, activePrefix, useUnicodeBar = false) {
+    const bar = useUnicodeBar ? '│' : '>';
+    return sortedItems.map((item) => {
+        if (item.type === 'sub') return `${bar} *${toSmallCaps(item.text)}*`;
         const inline = formatMenuItemInline(item.text, activePrefix);
-        if (!inline) continue;
-        row.push(inline);
-        if (row.length >= itemsPerLine) {
-            flushRow();
-        }
-    }
-    flushRow();
-    return lines;
+        if (!inline) return '';
+        return `${bar} ◦ ${inline}`;
+    }).filter(Boolean);
 }
 
-function buildFormattedBlockEntries(blocks, activePrefix, { sortBlocksAlpha = false, itemsPerLine = 1 } = {}) {
+function buildFormattedBlockEntries(blocks, activePrefix, { sortBlocksAlpha = false, useUnicodeBar = false } = {}) {
     const orderedBlocks = sortBlocksAlpha
         ? [...blocks].sort((a, b) => {
             const nameA = String(a.title || '').replace(/^menu\s+/i, '').trim();
@@ -354,17 +333,17 @@ function buildFormattedBlockEntries(blocks, activePrefix, { sortBlocksAlpha = fa
     const entries = [];
     for (const block of orderedBlocks) {
         const sortedItems = sortMenuItems(block.items);
-        const rawLines = buildBlockLines(sortedItems, activePrefix, itemsPerLine);
+        const rawLines = buildBlockLines(sortedItems, activePrefix, useUnicodeBar);
         if (!rawLines.length) continue;
         const header = formatSectionHeader(block.title, { stripMenuPrefix: true });
         const text = `${header}\n${rawLines.join('\n')}`;
-        entries.push({ text, quoteLines: countQuoteLines(text) });
+        entries.push({ text, quoteLines: countQuoteLines(text), lineCount: rawLines.length });
     }
     return entries;
 }
 
-function formatBlocksCleanHutao(blocks, activePrefix, { sortBlocksAlpha = false, itemsPerLine = 1 } = {}) {
-    return buildFormattedBlockEntries(blocks, activePrefix, { sortBlocksAlpha, itemsPerLine })
+function formatBlocksCleanHutao(blocks, activePrefix, { sortBlocksAlpha = false, useUnicodeBar = false } = {}) {
+    return buildFormattedBlockEntries(blocks, activePrefix, { sortBlocksAlpha, useUnicodeBar })
         .map((e) => e.text)
         .join('\n\n');
 }
@@ -487,18 +466,17 @@ function buildCleanHutaoMenuPages({
         const footerQuoteCount = countQuoteLines(footerNote);
         const sortAlpha = isAllMenu || blocks.length > 1;
 
-        let chosenEntries = null;
-        for (const perLine of [1, 2, 3, 4]) {
-            const candidate = buildFormattedBlockEntries(blocks, activePrefix, {
+        const quoteCandidate = buildFormattedBlockEntries(blocks, activePrefix, {
+            sortBlocksAlpha: sortAlpha,
+            useUnicodeBar: false
+        });
+        const totalQuotes = headerQuoteCount + quoteCandidate.reduce((acc, e) => acc + e.quoteLines, 0) + footerQuoteCount;
+        const chosenEntries = totalQuotes > MAX_WA_QUOTE_LINES
+            ? buildFormattedBlockEntries(blocks, activePrefix, {
                 sortBlocksAlpha: sortAlpha,
-                itemsPerLine: perLine
-            });
-            const totalQuotes = headerQuoteCount + candidate.reduce((acc, e) => acc + e.quoteLines, 0) + footerQuoteCount;
-            chosenEntries = candidate;
-            if (totalQuotes <= MAX_WA_QUOTE_LINES) {
-                break;
-            }
-        }
+                useUnicodeBar: true
+            })
+            : quoteCandidate;
 
         const formatted = (chosenEntries || []).map((e) => e.text).join('\n\n');
         const readmore = useReadmore ? `\n${String.fromCharCode(8206).repeat(4001)}\n` : '\n\n';
