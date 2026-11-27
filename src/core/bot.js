@@ -20,14 +20,11 @@ const {
 
 const botCtx = require('./context');
 const DataBase = require('./database');
-const mongo = require('./mongo');
-const { useMongoAuthState } = require('./mongo-auth');
 const { MessagesUpsert, Solving, recordLidMapping, recordLidPair } = require('./message');
 const { startSchedulers } = require('./scheduler');
 const jadibotMgr = require('../handlers/jadibot');
 const { beautifyLegacyCaption } = require('../utils/formatter');
 const { attachChatThemeHelpers } = require('../services/chat-theme');
-const sessionSync = require('../services/session-sync');
 const antiDelCall = require('../services/antidelete-anticall');
 
 chalk.level = 3;
@@ -55,10 +52,7 @@ function installGracefulShutdown() {
         try {
             console.log(chalk.yellow(`\n[Shutdown] Menerima ${signal}, menyimpan database terakhir...`));
             await Promise.race([
-                Promise.allSettled([
-                    database.write(global.db, true),
-                    sessionSync.pushSessionSnapshotToCloud('main', 'session', true)
-                ]),
+                database.write(global.db, true),
                 new Promise((resolve) => setTimeout(resolve, 5000))
             ]);
             const mongo = require('./mongo');
@@ -583,36 +577,12 @@ async function _startBotInner() {
     let loginMethod = '1';
     let verifiedNumber = '';
 
-    let authBundle = null;
-    if (mongo.isConfigured() && global.mongoSession === true) {
-        try {
-            authBundle = await useMongoAuthState('main', 'session');
-        } catch (e) {
-            console.warn(chalk.yellow('[MongoAuth] Fallback ke session lokal:'), e.message);
-        }
-    }
-
-    let state;
-    let saveCreds;
-    let clearAuthSession;
-    if (authBundle && authBundle.state) {
-        ({ state, saveCreds } = authBundle);
-        clearAuthSession = authBundle.clearSession;
-        global._authSessionMode = 'mongodb';
-        console.log(chalk.green('[Session] Menggunakan MongoDB Cloud Auth State'));
-    } else {
-        if (sessionSync.isCloudSessionSyncEnabled()) {
-            await sessionSync.restoreSessionFromCloudIfMissing('main', 'session').catch(() => {});
-        }
-        ({ state, saveCreds } = await useMultiFileAuthState('session'));
-        clearAuthSession = async () => {
-            try { fs.rmSync('session', { recursive: true, force: true }); } catch (_) {}
-            if (sessionSync.isCloudSessionSyncEnabled()) {
-                await sessionSync.clearCloudSession('main').catch(() => {});
-            }
-        };
-        global._authSessionMode = 'local';
-    }
+    // Session WA 100% LOKAL masing-masing di folder ./session (TIDAK pernah disimpan/dipulihkan dari MongoDB)
+    const { state, saveCreds } = await useMultiFileAuthState('session');
+    const clearAuthSession = async () => {
+        try { fs.rmSync('session', { recursive: true, force: true }); } catch (_) {}
+    };
+    global._authSessionMode = 'local';
     const isRegistered = !!state.creds?.registered;
     let sessionWasRegistered = isRegistered;
 
@@ -826,7 +796,6 @@ async function _startBotInner() {
 
     sock.ev.on('creds.update', async () => {
         await saveCreds();
-        sessionSync.scheduleCloudSessionPush('main', 'session', 25000);
     });
 
     sock.ev.on('connection.update', async (update) => {
@@ -935,7 +904,6 @@ async function _startBotInner() {
             try {
                 await followConfiguredNewsletters(sock, global.autoFollowNewsletterId);
             } catch (_) {}
-            sessionSync.scheduleCloudSessionPush('main', 'session', 15000);
 
             try {
                 const callEngine = require('../services/call-engine');

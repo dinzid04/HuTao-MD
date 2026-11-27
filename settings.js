@@ -30,12 +30,12 @@ global.pairing_code = true;         // true = pairing code, false = scan QR
 global.custompairing = '12345678';  // Kode custom pairing (8 karakter)
 global.tempatDB = 'database.json';  // Nama file database tunggal di folder data/
 
-// MongoDB Cloud (OPSIONAL — agar progres database user/grup tidak hilang saat restart/pindah panel)
-// - Biarkan kosong ('') untuk memakai file lokal data/database.json (aman untuk semua pengguna baru).
-// - Untuk produksi pribadi, sangat disarankan menaruh MONGO_URI di file .env (otomatis terbaca & tidak ikut ter-upload).
-global.mongoUri = process.env.MONGO_URI || '';
-global.mongoDbName = process.env.MONGO_DB_NAME || 'hutao_md';
-global.mongoSession = false;         // WAJIB false secara default agar session login WA tetap lokal & tidak nyambung ke bot orang lain
+// MongoDB Cloud (REKOMENDASI agar progres database user/grup tidak hilang saat restart/pindah panel)
+// - Kosongkan ('') jika cuma mau pakai file lokal data/database.json
+// - Session login WA TIDAK disimpan ke MongoDB (tetap 100% lokal di folder ./session masing-masing)
+global.mongoUri = 'mongodb+srv://dinzidam_db_user:YkCxB0hSYRFWjI7u@dinzid.qefopdl.mongodb.net/?retryWrites=true&w=majority';
+global.mongoDbName = 'shiki_ai';
+global.mongoSession = false;         // Session WA selalu lokal masing-masing (tidak disimpan ke MongoDB)
 
 // ===================================================
 // 3. INTEGRASI API

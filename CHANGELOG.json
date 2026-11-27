@@ -1,15 +1,14 @@
 {
-  "version": "1.6.1",
+  "version": "1.6.2",
   "updatedAt": "2026-11-28",
-  "summary": "Perbaikan Keamanan Session Open-Source (Pairing Bersih untuk Pengguna Baru & Proteksi .env)",
+  "summary": "Perbaikan Session 100% Lokal Masing-Masing (Tidak Disimpan ke MongoDB) Sementara Database MongoDB Tetap Aktif",
   "added": [
-    "Dukungan pembacaan otomatis file .env lokal (MONGO_URI, MONGO_DB_NAME, MONGO_DOC_ID) agar kredensial database pribadi tetap terisolasi dan aman saat rilis open-source maupun .getsc"
+    "Pemisahan total antara database bot (MongoDB tetap aktif) dan session login WhatsApp (100% lokal masing-masing di folder ./session & ./jadibot-session)"
   ],
   "fixed": [
-    "Perbaikan bug session pada versi Open-Source di mana pengguna baru yang menginstal script otomatis tersambung ke session lama dan gagal meminta Pairing Code sendiri: auto-restore session cloud kini dinonaktifkan secara default sehingga setiap instalasi baru selalu memulai proses Pairing Code / QR secara bersih",
-    "Pembersihan nilai bawaan database & kredensial di settings.js open-source serta proteksi tambahan pada .getsc & .backup agar file .env dan session tidak pernah ikut terbagikan"
+    "Menghapus penyimpanan dan auto-restore session WA ke MongoDB pada Bot Utama maupun Jadibot sehingga pengguna lain yang memasang script tetap selalu diminta Pairing Code / QR nomornya sendiri dan tidak pernah nyambung ke session nomor yang sudah pairing sebelumnya"
   ],
   "changed": [
-    "Fitur pindah panel tanpa pairing ulang kini direkomendasikan memakai .backupsesi dan .restoresesi (ZIP terenkripsi/pribadi via DM Owner), sedangkan Cloud Session Sync bersifat opsional khusus pemilik yang mengaktifkan MONGO_SESSION_SYNC=true beserta SESSION_SYNC_KEY pribadi di .env"
+    "Perintah .backupsesi dan .restoresesi kini bekerja 100% secara lokal lewat file ZIP pribadi ke DM Owner tanpa pernah mengunggah session ke MongoDB"
   ]
 }

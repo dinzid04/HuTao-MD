@@ -45,7 +45,7 @@ function getMongoUri() {
 
 function getMongoDbName() {
     loadDotEnvOnce();
-    return String(process.env.MONGO_DB_NAME || global.mongoDbName || 'hutao_md').trim() || 'hutao_md';
+    return String(process.env.MONGO_DB_NAME || global.mongoDbName || 'shiki_ai').trim() || 'shiki_ai';
 }
 
 function getMongoDocId() {

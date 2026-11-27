@@ -569,9 +569,6 @@ async function startJadibot(number, opts = {}) {
     instances.set(number, inst);
 
     try {
-        if (!isInitialPairing) {
-            await sessionSync.restoreSessionFromCloudIfMissing(`jadibot:${number}`, dir).catch(() => {});
-        }
         const { state, saveCreds } = await useMultiFileAuthState(dir);
         const isRegistered = !!state.creds?.registered;
         const { version } = await fetchLatestBaileysVersion();
@@ -662,7 +659,6 @@ async function startJadibot(number, opts = {}) {
 
         Dinz.ev.on('creds.update', async () => {
             await saveCreds();
-            sessionSync.scheduleCloudSessionPush(`jadibot:${number}`, dir, 30000);
         });
 
         let pairingRequested = false;
@@ -759,7 +755,6 @@ async function startJadibot(number, opts = {}) {
                 inst.chatToNotify = null;
                 inst.firstConnectPending = false;
 
-                sessionSync.scheduleCloudSessionPush(`jadibot:${number}`, dir, 15000);
                 console.log(chalk.green(`[Jadibot] ${number} CONNECTED ✓`));
             }
 
@@ -769,7 +764,6 @@ async function startJadibot(number, opts = {}) {
 
                 if (reason === DisconnectReason.loggedOut) {
                     try { fs.rmSync(dir, { recursive: true, force: true }); } catch (e) {}
-                    await sessionSync.clearCloudSession(`jadibot:${number}`).catch(() => {});
                     const r = loadRegistry();
                     if (r[number]) { r[number].status = 'stopped'; saveRegistry(r); }
                     inst.status = 'stopped';
@@ -1156,9 +1150,6 @@ async function restartJadibot(number) {
 
     const dir = sessionDir(number);
     if (!fs.existsSync(path.join(dir, 'creds.json'))) {
-        await sessionSync.restoreSessionFromCloudIfMissing(`jadibot:${number}`, dir).catch(() => {});
-    }
-    if (!fs.existsSync(path.join(dir, 'creds.json'))) {
         return { ok: false, message: `Session *${number}* tidak ada/hilang. Jalankan *.jadibot ${number}* untuk pairing ulang.` };
     }
 
@@ -1195,7 +1186,6 @@ async function deleteJadibot(number) {
     }
 
     try { fs.rmSync(dir, { recursive: true, force: true }); } catch (e) {}
-    await sessionSync.clearCloudSession(`jadibot:${number}`).catch(() => {});
     botCtx.deleteJadibotData(number);
 
     const freshReg = loadRegistry();
@@ -1330,9 +1320,6 @@ async function resumeAllJadibot() {
         if (v.stoppedByUser) continue;
         const dir = sessionDir(k);
         const credsFile = path.join(dir, 'creds.json');
-        if (!fs.existsSync(credsFile)) {
-            await sessionSync.restoreSessionFromCloudIfMissing(`jadibot:${k}`, dir).catch(() => {});
-        }
         if (fs.existsSync(credsFile)) {
             toResume.push(k);
         }

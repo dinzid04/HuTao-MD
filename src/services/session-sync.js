@@ -1,46 +1,8 @@
 const fs = require('fs');
 const path = require('path');
 const zlib = require('zlib');
-const crypto = require('crypto');
-const chalk = require('chalk');
-const mongo = require('../core/mongo');
 
-const SNAPSHOT_COLLECTION = 'bot_session_snapshot';
-const PUSH_MIN_INTERVAL_MS = 3 * 60 * 1000; // throttle 3 menit agar 0 delay & hemat MongoDB
-
-/**
- * KEAMANAN OPEN-SOURCE:
- * Auto-sync / auto-restore session ke MongoDB Cloud DINONAKTIFKAN secara default!
- * Hanya aktif jika pemilik bot secara eksplisit menyalakan:
- *   1) MONGO_URI miliknya sendiri,
- *   2) global.mongoSession === true (atau env MONGO_SESSION_SYNC=true), DAN
- *   3) SESSION_SYNC_KEY pribadi minimal 6 karakter (di .env / settings.js).
- * Dengan begitu, orang lain yang memakai script open-source akan SELALU diminta pairing nomor sendiri
- * dan TIDAK PERNAH otomatis tersambung ke session WhatsApp milik developer/owner!
- */
-function getSessionSyncSecret() {
-    if (typeof mongo.loadDotEnvOnce === 'function') mongo.loadDotEnvOnce();
-    return String(process.env.SESSION_SYNC_KEY || global.sessionSyncKey || '').trim();
-}
-
-function isCloudSessionSyncEnabled() {
-    if (!mongo.isConfigured()) return false;
-    const flagOn = global.mongoSession === true || String(process.env.MONGO_SESSION_SYNC || '').toLowerCase() === 'true';
-    if (!flagOn) return false;
-    return getSessionSyncSecret().length >= 6;
-}
-
-function buildNamespacedSlotId(slotKey = 'main') {
-    const secret = getSessionSyncSecret();
-    const hash = crypto.createHash('sha256').update(secret).digest('hex').slice(0, 20);
-    return `${slotKey}:${hash}`;
-}
-
-const lastPushByKey = new Map();
-const pushTimers = new Map();
-const pushInFlight = new Map();
-
-// CRC32 tabel standar untuk ZIP murni Node.js (jalan di Termux, Railway, Linux, Windows tanpa butuh binary zip/unzip!)
+// CRC32 tabel standar untuk ZIP murni Node.js (jalan di Termux, Railway, Linux, Windows tanpa binary zip/unzip)
 const CRC_TABLE = (() => {
     const t = new Uint32Array(256);
     for (let i = 0; i < 256; i++) {
@@ -75,7 +37,7 @@ function buildZipBuffer(entries) {
         local.writeUInt32LE(0x04034b50, 0);
         local.writeUInt16LE(20, 4);
         local.writeUInt16LE(0x0800, 6);
-        local.writeUInt16LE(8, 8); // deflate
+        local.writeUInt16LE(8, 8);
         local.writeUInt16LE(0, 10);
         local.writeUInt16LE(0, 12);
         local.writeUInt32LE(crc, 14);
@@ -130,7 +92,6 @@ function parseZipBuffer(zipBuf) {
     if (!Buffer.isBuffer(zipBuf) || zipBuf.length < 22) {
         throw new Error('File ZIP tidak valid.');
     }
-    // Cari End of Central Directory (0x06054b50) dari belakang
     let eocdPos = -1;
     const minSearch = Math.max(0, zipBuf.length - 65557);
     for (let i = zipBuf.length - 22; i >= minSearch; i--) {
@@ -182,7 +143,7 @@ function collectSessionFiles(sessionDir = './session') {
     const files = fs.readdirSync(sessionDir);
     for (const f of files) {
         if (!f.endsWith('.json')) continue;
-        if (f.startsWith('app-state-sync-version-')) continue; // skip transient app-state versions
+        if (f.startsWith('app-state-sync-version-')) continue;
         const fp = path.join(sessionDir, f);
         try {
             const st = fs.statSync(fp);
@@ -204,192 +165,26 @@ function hasValidLocalSession(sessionDir = './session') {
     }
 }
 
-/**
- * Backup snapshot folder session (terkompresi gzip) ke MongoDB Cloud.
- * Runtime tetap 100% lokal (0ms latency); jika panel down/pindah panel baru dengan folder session kosong,
- * session otomatis ter-restore selama perangkat di WhatsApp belum di-logout!
- */
-async function pushSessionSnapshotToCloud(slotKey = 'main', sessionDir = './session', force = false) {
-    if (!isCloudSessionSyncEnabled()) return { ok: false, reason: 'cloud-session-disabled' };
-    if (!hasValidLocalSession(sessionDir)) return { ok: false, reason: 'no-valid-creds' };
-    const docId = buildNamespacedSlotId(slotKey);
-
-    const now = Date.now();
-    const prev = lastPushByKey.get(docId) || 0;
-    if (!force && (now - prev) < PUSH_MIN_INTERVAL_MS) {
-        return { ok: true, skipped: true };
-    }
-    if (pushInFlight.has(docId)) return pushInFlight.get(docId);
-
-    const task = (async () => {
-        try {
-            const db = await mongo.getDb();
-            if (!db) return { ok: false, reason: 'db-unavailable' };
-
-            const filesMap = collectSessionFiles(sessionDir);
-            if (!filesMap['creds.json']) return { ok: false, reason: 'missing-creds' };
-
-            const credsObj = JSON.parse(filesMap['creds.json']);
-            const botNum = String(credsObj?.me?.id || '').split(':')[0].split('@')[0].replace(/[^0-9]/g, '');
-            const jsonStr = JSON.stringify(filesMap);
-            const gzBuf = zlib.gzipSync(Buffer.from(jsonStr, 'utf8'), { level: 6 });
-
-            if (gzBuf.length > 10 * 1024 * 1024) {
-                const essential = {};
-                for (const [k, v] of Object.entries(filesMap)) {
-                    if (k === 'creds.json' || k.startsWith('pre-key-') || k.startsWith('app-state-sync-key-') || k.startsWith('sender-key-')) {
-                        essential[k] = v;
-                    }
-                }
-                const slimGz = zlib.gzipSync(Buffer.from(JSON.stringify(essential), 'utf8'), { level: 6 });
-                await db.collection(SNAPSHOT_COLLECTION).updateOne(
-                    { _id: docId },
-                    {
-                        $set: {
-                            gzipBase64: slimGz.toString('base64'),
-                            fileCount: Object.keys(essential).length,
-                            sizeBytes: slimGz.length,
-                            botNumber: botNum,
-                            updatedAt: new Date()
-                        }
-                    },
-                    { upsert: true }
-                );
-                lastPushByKey.set(docId, Date.now());
-                return { ok: true, fileCount: Object.keys(essential).length, sizeBytes: slimGz.length, botNumber: botNum };
-            }
-
-            await db.collection(SNAPSHOT_COLLECTION).updateOne(
-                { _id: docId },
-                {
-                    $set: {
-                        gzipBase64: gzBuf.toString('base64'),
-                        fileCount: Object.keys(filesMap).length,
-                        sizeBytes: gzBuf.length,
-                        botNumber: botNum,
-                        updatedAt: new Date()
-                    }
-                },
-                { upsert: true }
-            );
-            lastPushByKey.set(docId, Date.now());
-            return { ok: true, fileCount: Object.keys(filesMap).length, sizeBytes: gzBuf.length, botNumber: botNum };
-        } catch (err) {
-            console.warn(chalk.yellow(`[SessionSync:${slotKey}] Gagal sync ke cloud:`), err.message);
-            return { ok: false, reason: err.message };
-        } finally {
-            pushInFlight.delete(docId);
-        }
-    })();
-
-    pushInFlight.set(docId, task);
-    return task;
+// Session WA TIDAK disimpan ke MongoDB (100% lokal per device/panel agar tiap user pairing sendiri-sendiri)
+function isCloudSessionSyncEnabled() {
+    return false;
 }
-
-function scheduleCloudSessionPush(slotKey = 'main', sessionDir = './session', delayMs = 20000) {
-    if (!isCloudSessionSyncEnabled()) return;
-    if (pushTimers.has(slotKey)) return;
-    const t = setTimeout(() => {
-        pushTimers.delete(slotKey);
-        pushSessionSnapshotToCloud(slotKey, sessionDir, false).catch(() => {});
-    }, delayMs);
-    if (typeof t.unref === 'function') t.unref();
-    pushTimers.set(slotKey, t);
+async function pushSessionSnapshotToCloud() {
+    return { ok: false, reason: 'local-only-session' };
+}
+function scheduleCloudSessionPush() {}
+async function restoreSessionFromCloudIfMissing() {
+    return { restored: false, reason: 'local-only-session' };
+}
+async function clearCloudSession() {
+    return false;
+}
+async function getCloudSessionStatus() {
+    return { configured: false, enabled: false, exists: false };
 }
 
 /**
- * Hanya memulihkan session dari cloud bila pemilik bot menyalakan isCloudSessionSyncEnabled() + SESSION_SYNC_KEY pribadi.
- * Secara default (open-source), fungsi ini langsung dilewati sehingga pengguna baru selalu diminta Pairing Code sendiri!
- */
-async function restoreSessionFromCloudIfMissing(slotKey = 'main', sessionDir = './session') {
-    if (hasValidLocalSession(sessionDir)) return { restored: false, reason: 'local-exists' };
-    if (!isCloudSessionSyncEnabled()) return { restored: false, reason: 'cloud-session-disabled' };
-    const docId = buildNamespacedSlotId(slotKey);
-
-    try {
-        const db = await mongo.getDb();
-        if (!db) return { restored: false, reason: 'db-unavailable' };
-
-        const doc = await db.collection(SNAPSHOT_COLLECTION).findOne({ _id: docId });
-        if (!doc || typeof doc.gzipBase64 !== 'string') {
-            return { restored: false, reason: 'no-cloud-snapshot' };
-        }
-
-        const gzBuf = Buffer.from(doc.gzipBase64, 'base64');
-        const filesMap = JSON.parse(zlib.gunzipSync(gzBuf).toString('utf8'));
-        if (!filesMap || !filesMap['creds.json']) {
-            return { restored: false, reason: 'invalid-snapshot' };
-        }
-
-        const credsCheck = JSON.parse(filesMap['creds.json']);
-        if (!credsCheck?.registered || !credsCheck?.me?.id) {
-            return { restored: false, reason: 'unregistered-snapshot' };
-        }
-
-        fs.mkdirSync(sessionDir, { recursive: true });
-        let count = 0;
-        for (const [fname, content] of Object.entries(filesMap)) {
-            const safeName = path.basename(fname);
-            if (!safeName.endsWith('.json')) continue;
-            fs.writeFileSync(path.join(sessionDir, safeName), content, 'utf8');
-            count++;
-        }
-        console.log(
-            chalk.green(
-                `[SessionSync:${slotKey}] Session pribadi dipulihkan dari Cloud (${count} file, +${doc.botNumber || '?'}).`
-            )
-        );
-        return { restored: true, fileCount: count, botNumber: doc.botNumber || '' };
-    } catch (err) {
-        console.warn(chalk.yellow(`[SessionSync:${slotKey}] Gagal restore dari cloud:`), err.message);
-        return { restored: false, reason: err.message };
-    }
-}
-
-async function clearCloudSession(slotKey = 'main') {
-    if (!isCloudSessionSyncEnabled()) return false;
-    const docId = buildNamespacedSlotId(slotKey);
-    try {
-        const db = await mongo.getDb();
-        if (!db) return false;
-        await db.collection(SNAPSHOT_COLLECTION).deleteOne({ _id: docId });
-        lastPushByKey.delete(docId);
-        return true;
-    } catch (_) {
-        return false;
-    }
-}
-
-async function getCloudSessionStatus(slotKey = 'main') {
-    if (!isCloudSessionSyncEnabled()) {
-        return { configured: false, enabled: false, exists: false };
-    }
-    const docId = buildNamespacedSlotId(slotKey);
-    try {
-        const db = await mongo.getDb();
-        if (!db) return { configured: true, enabled: true, connected: false, exists: false };
-        const doc = await db.collection(SNAPSHOT_COLLECTION).findOne(
-            { _id: docId },
-            { projection: { fileCount: 1, sizeBytes: 1, botNumber: 1, updatedAt: 1 } }
-        );
-        if (!doc) return { configured: true, enabled: true, connected: true, exists: false };
-        return {
-            configured: true,
-            enabled: true,
-            connected: true,
-            exists: true,
-            fileCount: doc.fileCount || 0,
-            sizeBytes: doc.sizeBytes || 0,
-            botNumber: doc.botNumber || '',
-            updatedAt: doc.updatedAt || null
-        };
-    } catch (_) {
-        return { configured: true, enabled: true, connected: false, false: true, exists: false };
-    }
-}
-
-/**
- * Buat file ZIP portable berisi folder session untuk dipindahkan ke panel baru / Termux / Railway.
+ * Buat file ZIP portable berisi folder session LOKAL untuk dipindahkan ke panel baru / Termux / Railway.
  */
 function createSessionZipBuffer(sessionDir = './session') {
     const filesMap = collectSessionFiles(sessionDir);
@@ -407,7 +202,7 @@ function createSessionZipBuffer(sessionDir = './session') {
 }
 
 /**
- * Restore folder session dari buffer ZIP hasil .backupsesi.
+ * Restore folder session LOKAL dari buffer ZIP hasil .backupsesi.
  */
 function restoreSessionFromZipBuffer(zipBuf, sessionDir = './session') {
     const entries = parseZipBuffer(zipBuf);
