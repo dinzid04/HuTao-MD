@@ -3,7 +3,7 @@ const { runRichGame } = require('./_helper');
 module.exports = {
     name: 'flappy',
     category: 'richgame',
-    commands: ['flappy', 'flappybird', 'bird'],
+    commands: ['flappy', 'flappybird', 'flybird', 'bird'],
 
     async execute(ctx) {
         return runRichGame(ctx, 'flappy');

@@ -1,14 +1,19 @@
+const stickerAudio = require('../../services/sticker-audio');
+
 module.exports = {
     name: 'swm',
     category: 'sticker',
     commands: ['swm', 'wm', 'take', 'colong'],
 
     async execute(ctx) {
-        const { Dinz, m, command, text, quoted, mime, qmsg, isCreator, Reply, checkLimit, addLimit } = ctx;
+        const { Dinz, m, store, botCtx, command, text, quoted, mime, qmsg, isCreator, Reply, checkLimit, addLimit } = ctx;
 
         if (checkLimit(m.sender, isCreator)) return Reply(global.mess.limit);
 
-        const isSticker = /webp/i.test(mime) || m.type === 'stickerMessage' || (m.quoted && m.quoted.type === 'stickerMessage');
+        const isSticker = /webp/i.test(mime)
+            || m.type === 'stickerMessage'
+            || m.type === 'audioStickerMessage'
+            || (m.quoted && (m.quoted.type === 'stickerMessage' || m.quoted.type === 'audioStickerMessage'));
         const isImage = /image/i.test(mime) || m.type === 'imageMessage' || (m.quoted && m.quoted.type === 'imageMessage');
         const isVideo = /video/i.test(mime) || m.type === 'videoMessage' || (m.quoted && m.quoted.type === 'videoMessage');
 
@@ -23,14 +28,15 @@ module.exports = {
             }
         }
 
-        let pack = global.packname;
-        let aut = global.namaOwner;
+        const identity = botCtx && typeof botCtx.getBotIdentity === 'function' ? botCtx.getBotIdentity(Dinz) : {};
+        let pack = identity.packname || global.packname;
+        let aut = identity.namaOwner || global.namaOwner || global.author;
 
         if (text && text.trim().length > 0) {
             if (text.includes('|')) {
                 const parts = text.split('|');
-                pack = parts[0].trim() || global.packname;
-                aut = parts[1].trim() || global.namaOwner;
+                pack = parts[0].trim() || pack;
+                aut = parts[1].trim() || aut;
             } else {
                 pack = text.trim();
                 aut = text.trim();
@@ -53,6 +59,21 @@ module.exports = {
 
             if (!mediaBuffer || mediaBuffer.length === 0) {
                 throw new Error("Gagal mengunduh media dari pesan.");
+            }
+
+            // Jika stiker yang di-reply adalah Sticker Audio, pertahankan audionya sambil mengganti WM!
+            if (isSticker) {
+                const foundAudio = await stickerAudio.findAudioForQuotedSticker(m, store).catch(() => null);
+                if (foundAudio && Buffer.isBuffer(foundAudio.audioBuf) && foundAudio.audioBuf.length > 64) {
+                    await stickerAudio.sendStickerAudio(Dinz, m.chat, foundAudio.audioBuf, mediaBuffer, {
+                        packname: pack,
+                        author: aut,
+                        maxAudioDuration: 20
+                    });
+                    addLimit(m.sender, isCreator);
+                    await Dinz.sendMessage(m.chat, { react: { text: "✅", key: m.key } }).catch(() => {});
+                    return true;
+                }
             }
 
             await Dinz.sendAsSticker(m.chat, mediaBuffer, m, { packname: pack, author: aut });

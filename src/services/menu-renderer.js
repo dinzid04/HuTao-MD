@@ -65,6 +65,13 @@ const MENU_STYLES = [
         name: 'Location Header Interactive',
         source: 'Clean',
         desc: 'Kartu interaktif dengan header lokasi ber-thumbnail & layout clean.'
+    },
+    {
+        id: 8,
+        key: 'elsyaa',
+        name: 'Elsyaa Style Interactive',
+        source: 'Elsyaa',
+        desc: 'Tampilan & tombol interaktif ala Elsyaa (Menu, Support, CTA & AllMenu Location Banner).'
     }
 ];
 
@@ -126,7 +133,8 @@ function resolveStyleInput(input) {
         hutao3: 4, 'hutao-doc': 4, doc: 4, document: 4,
         ourin: 5, ourin1: 5, 'ourin-v1': 5, 'dual-select': 5, dual: 5,
         ourin2: 6, 'ourin-v2': 6, 'offer-card': 6, offer: 6,
-        ourin3: 7, 'ourin-loc': 7, 'loc-card': 7, loc: 7, location: 7
+        ourin3: 7, 'ourin-loc': 7, 'loc-card': 7, loc: 7, location: 7,
+        elsyaa: 8, elysia: 8, elysiaa: 8, 'elsyaa-v2': 8
     };
     if (aliasMap[clean]) return aliasMap[clean];
 
@@ -1038,6 +1046,214 @@ async function sendStyledMenu({
                     }
                 ]
             });
+            await sendExtraMenuPages(Dinz, m, extraPages);
+            return;
+        }
+
+        if (styleId === 8) {
+            const { generateWAMessageFromContent, prepareWAMessageMedia } = require('@whiskeysockets/baileys');
+            const nowTz = moment().tz(global.timezone || 'Asia/Jakarta');
+            const timeDot = nowTz.format('HH.mm');
+            const uptimeStr = formatUptime(process.uptime());
+            const statusEmoji = isCreator ? '👑' : isPrem ? '💎' : '🆓';
+            const roleLabel = isCreator ? 'Owner' : isPrem ? 'Premium' : 'Member';
+            const ownerNumber = String(identity.owner || global.owner || '').replace(/[^0-9]/g, '');
+            const cleanPushName = String(stats.pushName || 'User').replace(/@/g, '').trim() || 'User';
+            const introSmallCaps = toSmallCaps(
+                `i am ${botname} your personal automated assistant on whatsapp, here to help you with commands, tools, and all the features available in this bot.`
+            );
+
+            const profileSystemFooter = [
+                '—–·「 PROFILE 」·–—',
+                `   ✧ Username : ${cleanPushName}`,
+                `   ✧ Status   : ${statusEmoji} ${roleLabel}`,
+                `   ✧ Limit    : ${stats.limitText}`,
+                '',
+                '—–·「 SYSTEM 」·–—',
+                `   ✧ Bot Name      : ${botname}`,
+                `   ✧ Owner         : ${ownerName}`,
+                `   ✧ Version       : v${global.versi || '1.0.0'}`,
+                `   ✧ Total Feature : ${totalFitur}`,
+                `   ✧ Time          : ${timeDot} WIB`,
+                `   ✧ Active since  : ${uptimeStr}`,
+                '',
+                " Enjoy the bot's features"
+            ].join('\n');
+
+            const catRows = MENU_CATEGORIES.filter((c) => c.cmd !== 'allmenu').map((c) => ({
+                title: `${c.emoji || '▪'} ${c.title.toUpperCase()}`,
+                description: c.desc,
+                id: prefixCmd(c.cmd, activePrefix)
+            }));
+
+            // AllMenu / Menu Kategori: gaya Elsyaa AllMenu (buttonsMessage headerType 6 + location thumbnail + 1 tombol lebar "☰ Menu")
+            if (categoryTeks) {
+                const blocks = parseShikiMenuBlocks(categoryTeks);
+                const sortAlpha = isAllMenu || blocks.length > 1;
+                const formattedBlocks = blocks.length
+                    ? buildFormattedBlockEntries(blocks, activePrefix, { sortBlocksAlpha: sortAlpha, useUnicodeBar: true })
+                        .map((e) => e.text)
+                        .join('\n\n')
+                    : categoryTeks;
+
+                const longFooter = [
+                    '—–·「 PROFILE 」·–—',
+                    `   ✧ Username : ${cleanPushName}`,
+                    `   ✧ Status   : ${statusEmoji} ${roleLabel}`,
+                    `   ✧ Limit    : ${stats.limitText}`,
+                    '',
+                    '—–·「 SYSTEM 」·–—',
+                    `   ✧ Bot Name      : ${botname}`,
+                    `   ✧ Owner         : ${ownerName}`,
+                    `   ✧ Version       : v${global.versi || '1.0.0'}`,
+                    `   ✧ Total Feature : ${totalFitur}`,
+                    `   ✧ Time          : ${timeDot} WIB`,
+                    `   ✧ Active since  : ${uptimeStr}`,
+                    '',
+                    formattedBlocks,
+                    '',
+                    " Enjoy the bot's features"
+                ].join('\n');
+
+                const chunkedSections = [];
+                for (let i = 0; i < catRows.length; i += 10) {
+                    chunkedSections.push({
+                        title: i === 0 ? '📋 PILIH KATEGORI' : `📋 KATEGORI LANJUTAN ${Math.floor(i / 10) + 1}`,
+                        rows: catRows.slice(i, i + 10)
+                    });
+                }
+                const paramsJson = JSON.stringify({ title: '☰ Menu', sections: chunkedSections });
+                const locThumb = await makeThumbBuffer(imageBuffer, 300, 170, 72);
+                const msgTs = m.messageTimestamp ? Number(m.messageTimestamp) * 1000 : Date.now();
+                const pingMs = Math.max(1, Math.min(9999, Math.abs(Date.now() - msgTs)));
+
+                await Dinz.relayMessage(
+                    m.chat,
+                    {
+                        buttonsMessage: {
+                            buttons: [
+                                {
+                                    buttonId: 'pilihan_menu',
+                                    buttonText: { displayText: '☰ Menu' },
+                                    type: 1,
+                                    nativeFlowInfo: {
+                                        name: 'single_select',
+                                        paramsJson
+                                    }
+                                }
+                            ],
+                            locationMessage: {
+                                name: `──「 ${botname} 」──`,
+                                address: `⏱ ${uptimeStr} · ◷ ${timeDot} WIB · ⌁ ${pingMs}ms`,
+                                ...(locThumb ? { jpegThumbnail: locThumb } : {})
+                            },
+                            contentText: introSmallCaps,
+                            footerText: longFooter,
+                            contextInfo: {
+                                ...(mentions.length ? { mentionedJid: mentions } : {}),
+                                forwardingScore: 777,
+                                isForwarded: true
+                            },
+                            headerType: 6,
+                            messageContextInfo: {
+                                deviceListMetadata: {},
+                                deviceListMetadataVersion: 2
+                            }
+                        }
+                    },
+                    { AI: false }
+                );
+                await sendExtraMenuPages(Dinz, m, extraPages);
+                return;
+            }
+
+            // Menu Utama: gaya Elsyaa Interactive (image header + limited_time_offer + spacer buttons + Menu & Support single_select + CTA URL)
+            const mainQuickRows = [
+                { title: 'All Menu', description: `Lihat semua ${totalFitur} fitur bot`, id: prefixCmd('allmenu', activePrefix) },
+                { title: 'Menu Jaga Grup', description: 'Panel button proteksi grup lengkap', id: prefixCmd('menu-jagagrup', activePrefix) },
+                { title: 'Rich Game', description: 'Flappy Bird, Chess, 2048, Wordle, dll', id: prefixCmd('richgame', activePrefix) },
+                { title: 'Owner Bot', description: `Hubungi ${ownerName}`, id: prefixCmd('owner', activePrefix) }
+            ];
+
+            const elsyaaButtons = [
+                { name: '', buttonParamsJson: '' },
+                {
+                    name: 'single_select',
+                    buttonParamsJson: JSON.stringify({
+                        title: 'Menu',
+                        sections: [
+                            { title: 'MAIN MENU', rows: mainQuickRows },
+                            { title: 'KATEGORI FITUR', rows: catRows }
+                        ],
+                        icon: 'DEFAULT'
+                    })
+                },
+                { name: '', buttonParamsJson: '' },
+                {
+                    name: 'single_select',
+                    buttonParamsJson: JSON.stringify({
+                        title: 'Support',
+                        sections: [
+                            {
+                                title: `SUPPORT ${botname.toUpperCase()}`,
+                                rows: [
+                                    { title: 'Contact Owner', description: 'Chat langsung dengan pengembang', id: prefixCmd('owner', activePrefix) },
+                                    { title: 'Cek On/Off Bot', description: 'Status setting bot & grup', id: prefixCmd('cekonoff', activePrefix) },
+                                    { title: 'Ganti Style Menu', description: 'Ubah tema tampilan menu (Owner)', id: prefixCmd('setmenu', activePrefix) }
+                                ]
+                            }
+                        ],
+                        icon: 'REVIEW'
+                    })
+                },
+                {
+                    name: 'cta_url',
+                    buttonParamsJson: JSON.stringify({
+                        display_text: 'Contact Owner',
+                        url: ownerNumber ? `https://wa.me/${ownerNumber}` : 'https://whatsapp.com',
+                        merchant_url: ownerNumber ? `https://wa.me/${ownerNumber}` : 'https://whatsapp.com'
+                    })
+                }
+            ];
+
+            let headerMedia = null;
+            try {
+                headerMedia = imageBuffer
+                    ? await prepareWAMessageMedia({ image: imageBuffer }, { upload: Dinz.waUploadToServer })
+                    : await prepareWAMessageMedia({ image: { url: imageUrl } }, { upload: Dinz.waUploadToServer });
+            } catch (_) {}
+
+            const elsyaaMsg = generateWAMessageFromContent(
+                m.chat,
+                {
+                    interactiveMessage: {
+                        header: {
+                            hasMediaAttachment: Boolean(headerMedia?.imageMessage),
+                            ...(headerMedia?.imageMessage ? { imageMessage: headerMedia.imageMessage } : {})
+                        },
+                        body: { text: introSmallCaps },
+                        footer: { text: profileSystemFooter },
+                        nativeFlowMessage: {
+                            buttons: elsyaaButtons,
+                            messageParamsJson: JSON.stringify({
+                                limited_time_offer: {
+                                    text: `v${global.versi || '1.0.0'} • ${totalFitur} Fitur`,
+                                    url: ownerNumber ? `https://wa.me/${ownerNumber}` : 'https://whatsapp.com',
+                                    copy_code: botname
+                                }
+                            })
+                        },
+                        contextInfo: {
+                            ...(mentions.length ? { mentionedJid: mentions } : {}),
+                            forwardingScore: 1,
+                            isForwarded: true
+                        }
+                    }
+                },
+                { quoted: m, userJid: Dinz.user?.id }
+            );
+
+            await Dinz.relayMessage(m.chat, elsyaaMsg.message, { messageId: elsyaaMsg.key.id, AI: false });
             await sendExtraMenuPages(Dinz, m, extraPages);
             return;
         }

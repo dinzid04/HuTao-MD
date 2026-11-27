@@ -1219,6 +1219,10 @@ async function Serialize(Dinz, msg, store) {
     }
 
     if (m.message) {
+        try {
+            const stickerAudioSvc = require('../services/sticker-audio');
+            stickerAudioSvc.recordIncomingAudioSticker(m);
+        } catch (_) {}
         if (m.message.deviceSentMessage?.message) {
             m.message = m.message.deviceSentMessage.message;
         }
@@ -1226,7 +1230,7 @@ async function Serialize(Dinz, msg, store) {
             m.message = m.message.ephemeralMessage.message;
         }
         m.type = getContentType(m.message) || Object.keys(m.message)[0]
-        m.msg = (/viewOnceMessage|viewOnceMessageV2|viewOnceMessageV2Extension|editedMessage|ephemeralMessage|documentWithCaptionMessage/i.test(m.type) && m.message[m.type]?.message
+        m.msg = (/viewOnceMessage|viewOnceMessageV2|viewOnceMessageV2Extension|spoilerMessage|audioStickerMessage|editedMessage|ephemeralMessage|documentWithCaptionMessage/i.test(m.type) && m.message[m.type]?.message
             ? m.message[m.type].message[getContentType(m.message[m.type].message)]
             : (extractMessageContent(m.message[m.type]) || m.message[m.type]))
 

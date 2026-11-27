@@ -7,33 +7,46 @@ module.exports = {
     commands: ['saudio', 'stickeraudio', 'stikeraudio', 'sa'],
 
     async execute(ctx) {
-        const { Dinz, m, text, body, isCreator, Reply, prefixMgr, usedPrefix, checkLimit, addLimit } = ctx;
+        const { Dinz, m, text, isCreator, Reply, botCtx, prefixMgr, usedPrefix, checkLimit, addLimit } = ctx;
 
         const pfx = prefixMgr ? prefixMgr.getDisplayPrefix(global.db?.settings) : usedPrefix;
-        const rawArg = (text || '').trim().toLowerCase();
+        const rawText = (text || '').trim();
+        const rawArg = rawText.toLowerCase();
 
         if (/^(reset|del|hapus|cancel|batal)$/.test(rawArg)) {
             stickerAudio.clearSession(m.sender);
             return Reply('🗑️ Sesi Sticker Audio dibatalkan.');
         }
 
-        const staticOnly = /\b(static|statis|foto|img|diam|frame)\b/.test(rawArg);
+        const staticOnly = /\b(static|statis|foto|img|diam|frame)\b/i.test(rawText);
+        const identity = botCtx && typeof botCtx.getBotIdentity === 'function' ? botCtx.getBotIdentity(Dinz) : {};
+        let packname = identity.packname || global.packname || global.botname || 'HuTao - MD';
+        let author = identity.namaOwner || global.namaOwner || global.author || 'DinzID';
+
+        // Opsional custom WM: .saudio pack|author (atau .saudio foto pack|author)
+        const wmCandidate = rawText.replace(/\b(static|statis|foto|img|diam|frame)\b/gi, '').trim();
+        if (wmCandidate && wmCandidate.includes('|')) {
+            const parts = wmCandidate.split('|');
+            if (parts[0].trim()) packname = parts[0].trim();
+            if (parts[1].trim()) author = parts[1].trim();
+        }
 
         const helpText = formatCard({
             icon: '🎵',
-            title: 'STICKER AUDIO',
+            title: 'STICKER AUDIO (ANDROID & iOS)',
             body:
-                `${toSmallCaps('gabungkan video ber-audio atau gambar/stiker + audio menjadi sticker audio')}\n\n` +
+                `${toSmallCaps('gabungkan video ber-audio atau gambar/stiker + audio menjadi sticker audio ber-watermark')}\n\n` +
                 `*${toBoldSans('Mode Video Langsung (1 Langkah)')}*\n` +
                 `◦ Kirim / reply *video yang ada audionya* dengan ${toMono(`${pfx}saudio`)}\n` +
-                `◦ Tambah ${toMono('foto')} (${toMono(`${pfx}saudio foto`)}) jika ingin stiker diam\n\n` +
+                `◦ Tambah ${toMono('foto')} (${toMono(`${pfx}saudio foto`)}) jika ingin visual diam (tetap bunyi di iOS & Android)\n` +
+                `◦ Custom WM: ${toMono(`${pfx}saudio pack|author`)}\n\n` +
                 `*${toBoldSans('Mode Sekali Tembak (2 Media)')}*\n` +
                 `◦ Reply audio/VN + kirim gambar/stiker/video dengan ${toMono(`${pfx}saudio`)}\n` +
                 `◦ Reply gambar/stiker + kirim audio/video dengan ${toMono(`${pfx}saudio`)}\n\n` +
                 `*${toBoldSans('Mode 2 Langkah')}*\n` +
                 `◦ 1. Kirim / reply gambar/stiker dengan ${toMono(`${pfx}saudio`)}\n` +
                 `◦ 2. Kirim / reply audio/VN dengan ${toMono(`${pfx}saudio`)}`,
-            footer: `Ketik ${pfx}saudio reset untuk membatalkan sesi tersimpan`
+            footer: `WM otomatis: ${packname} • ${pfx}saudio reset untuk batal`
         });
 
         const quotedRaw = stickerAudio.getQuotedRawMessage(m);
@@ -62,7 +75,7 @@ module.exports = {
                 const extracted = await stickerAudio.extractFromVideo(videoMedia.buf, {
                     staticOnly,
                     maxDuration: 8,
-                    maxAudioDuration: 60
+                    maxAudioDuration: 20
                 });
                 if (!visualBuf && extracted.visualBuf) {
                     visualBuf = extracted.visualBuf;
@@ -88,7 +101,11 @@ module.exports = {
             stickerAudio.clearSession(m.sender);
             await Dinz.sendMessage(m.chat, { react: { text: '⏳', key: m.key } }).catch(() => {});
             try {
-                await stickerAudio.sendStickerAudio(Dinz, m.chat, saved.audioBuf, saved.visualBuf);
+                await stickerAudio.sendStickerAudio(Dinz, m.chat, saved.audioBuf, saved.visualBuf, {
+                    packname,
+                    author,
+                    maxAudioDuration: 20
+                });
                 addLimit(m.sender, isCreator);
                 await Dinz.sendMessage(m.chat, { react: { text: '✅', key: m.key } }).catch(() => {});
             } catch (err) {

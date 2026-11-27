@@ -107,7 +107,7 @@ global.menufun = buildMenuBlock('Menu Fun', [
 
 global.menugame = buildMenuBlock('Menu Game', [
     'ttc', '2048', 'dino', 'mbim', 'chess', 'plane', 'simon', 'snake', 'stack',
-    'flappy', 'memory', 'riddle', 'tetris', 'wordle', 'dungeon', 'suitpvp',
+    'flappy', 'flybird', 'memory', 'riddle', 'tetris', 'wordle', 'dungeon', 'suitpvp',
     'asahotak', 'breakout', 'connect4', 'kataacak', 'richgame', 'tekateki',
     'werewolf', 'blackjack', 'family100', 'susunkata', 'tebakkata', 'tebakgame',
     'tebakhero', 'tebaklagu', 'tebaklogo', 'tictactoe', 'caklontong', 'tebakhewan',
@@ -260,7 +260,8 @@ global.menulist = buildMenuBlock('Menu Store', [
 global.menutools = buildMenuBlock('Menu Tools', [
     'qu', 'lid', 'ocr', 'rvo', 'tod', 'tts', 'font', 'kbbi', 'uguu', 'gempa',
     'ipwho', 'ssweb', 'togif', 'toimg', 'tomp3', 'tovn', 'tourl', 'wrml',
-    'catbox', 'volume', 'inspect', 'listlid', 'pixhost', 'tempo 🅟', 'top4top',
+    'vov2', 'blur', 'catbox', 'volume', 'inspect', 'listlid', 'pixhost',
+    'spoiler', 'vov2ext', 'viewonce', 'tempo 🅟', 'top4top',
     'tovideo', 'wastalk', 'esmtocjs', 'cjstoesm', 'harilibur', 'nikparser',
     'pomodoro', 'qrcustom', 'readmore', 'spamngl', 'carifitur', 'dnslookup',
     'livescore', 'shortlink', 'whatmusic', 'cekphising', 'text2sound',

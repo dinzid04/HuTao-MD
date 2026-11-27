@@ -1,6 +1,6 @@
 {
   "name": "hutao-md",
-  "version": "1.2.2",
+  "version": "1.3.0",
   "description": "HuTao - MD Multi-Device WhatsApp Bot",
   "main": "index.js",
   "type": "commonjs",
@@ -24,7 +24,7 @@
   "dependencies": {
     "@ffmpeg-installer/ffmpeg": "^1.1.0",
     "@hapi/boom": "^10.0.0",
-    "@whiskeysockets/baileys": "https://github.com/alifalfrl/alipclutch-baileys.git",
+    "@whiskeysockets/baileys": "https://github.com/dinzid04/hutao-baileys.git",
     "awesome-phonenumber": "^4.4.0",
     "axios": "^1.19.0",
     "big-integer": "^1.6.52",

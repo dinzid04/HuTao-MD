@@ -64,10 +64,10 @@ const YOUHU_GAMES = {
         key: 'flappy',
         name: 'Flappy Bird',
         emoji: '🐦',
-        file: 'bird',
+        localFile: 'flappy.html',
         title: 'Flappy Bird',
         trustedSources: ['nox.dev'],
-        desc: 'Terbangkan burung melewati pipa tanpa menabrak.'
+        desc: 'Terbangkan burung melewati pipa tanpa menabrak (dengan jeda countdown 3-2-1).'
     },
     '2048': {
         key: '2048',
