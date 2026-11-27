@@ -1,18 +1,15 @@
 {
-  "version": "1.4.0",
+  "version": "1.4.1",
   "updatedAt": "2026-11-27",
-  "summary": "Dukungan Stabil Termux & Railway, Fix Teks & Tata Letak Setmenu 8, RVO Multi-Fallback Anti Gagal (WA Bisnis & 2x View), Cloud Session Sync Lintas Panel, dan Backup SC Mandiri untuk Jadibot Clone",
+  "summary": "Fix Install Cepat Termux (hutao-baileys v8.7.1 Anti-ETIMEDOUT & Sharp Opsional) + Auto-Install & Auto-Heal Modul Otomatis",
   "added": [
-    "Dukungan penuh Termux (Android ARM64) & Railway Cloud: script termux-start.sh (wake-lock + auto-restart + hemat RAM), konfigurasi railway.json & nixpacks.toml, HTTP healthcheck otomatis di /health saat PORT aktif, env MONGO_URI & PAIRING_NUMBER untuk pairing headless",
-    "Hybrid Cloud Session Sync + Backup/Restore Session Portable (.backupsesi, .restoresesi, .syncsesi, .ceksesi): snapshot session otomatis ter-mirror ke MongoDB dengan latency lokal 0ms; jika panel down/pindah panel baru dan perangkat WA belum di-logout, session bot utama maupun jadibot otomatis pulih tanpa pairing ulang (otomatis terhapus saat 401/loggedOut)",
-    "Fitur .backupclone / .backupsc untuk Jadibot: mengekspor 1 paket SC lengkap (100% fitur utuh tanpa pengurangan) yang sudah otomatis terisi konfigurasi rename, media lokal, dan database milik clone tersebut, serta bersih dari kredensial/session bot utama",
-    "Engine viewonce-store dengan penyimpanan metadata + cache media terdekripsi untuk .rvo agar pesan Sekali Lihat tetap tembus walau sudah dibuka 2x+ atau berasal dari WA Bisnis"
+    "Sistem Auto-Install & Auto-Heal modul otomatis di index.js & termux-start.sh: mengecek seluruh dependencies di package.json saat startup maupun saat error MODULE_NOT_FOUND, lalu otomatis menginstal ulang modul yang kurang dengan retry otomatis (anti-loop untuk modul native opsional)"
   ],
   "fixed": [
-    "Perbaikan .setmenu 8 (Elsyaa Style): kini 100% menggunakan teks, font, dan tata letak default HuTao - MD (hanya mengambil tampilan gambar/kartu & tombol ala Elsyaa), serta perbaikan batas menuStyle di context.js agar style 8 tersimpan permanen setelah restart",
-    "Perbaikan total .rvo / .readviewonce / .buka dengan 5 lapis auto-fallback (cache dekripsi RAM, deep recursive unwrap kebal messageContextInfo WA Bisnis, viewonce-store lookup, store.loadMessage LID/PN, dan 5 metode unduh termasuk rekonstruksi mmg.whatsapp.net & updateMediaMessage) + menjaga format OGG/Opus pada voice note"
+    "Perbaikan dinzid04/hutao-baileys v8.7.1: menghapus script prepare/prepack & devDependencies lama agar npm install tidak lagi gagal 'git dep preparation failed / ETIMEDOUT' dan proses install jadi jauh lebih cepat",
+    "Perbaikan crash 'Cannot find module sharp' di Termux Android ARM64 pada MessageBuilder.js (baik di fork hutao-baileys v8.7.1 maupun patch kompatibilitas otomatis di index.js)"
   ],
   "changed": [
-    "Dependensi native opsional (canvas, sharp, @ffmpeg-installer/ffmpeg) dipindahkan ke optionalDependencies agar npm install di Termux Android tidak gagal, sementara Linux/Railway tetap menginstalnya secara otomatis"
+    "Flag npm install pada prestart, index.js, dan termux-start.sh kini dilengkapi --fetch-retries=5 serta timeout lebih panjang agar tahan jaringan seluler yang tidak stabil"
   ]
 }

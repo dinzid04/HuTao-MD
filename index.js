@@ -1,19 +1,79 @@
+const OPTIONAL_NATIVE_MODULES = new Set([
+    'sharp',
+    'canvas',
+    '@ffmpeg-installer/ffmpeg',
+    'jimp',
+    'link-preview-js',
+    'qrcode-terminal'
+]);
+
+function getMissingRequiredModules() {
+    const fs = require('fs');
+    const path = require('path');
+    let requiredModules = ['chalk', 'axios', 'pino', '@whiskeysockets/baileys'];
+    try {
+        const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, 'package.json'), 'utf8'));
+        if (pkg && pkg.dependencies && typeof pkg.dependencies === 'object') {
+            requiredModules = [...new Set([...Object.keys(pkg.dependencies), ...requiredModules])];
+        }
+    } catch (_) {}
+
+    const missing = [];
+    for (const mod of requiredModules) {
+        if (OPTIONAL_NATIVE_MODULES.has(mod)) continue;
+        try {
+            require.resolve(mod, { paths: [__dirname] });
+        } catch (_) {
+            missing.push(mod);
+        }
+    }
+    return missing;
+}
+
+function runNpmInstallWithRetry(argsStr = '', maxAttempts = 3) {
+    const { execSync } = require('child_process');
+    const baseFlags = '--allow-git=all --no-audit --no-fund --fetch-retries=5 --fetch-retry-mintimeout=15000 --fetch-retry-maxtimeout=90000';
+    const cmd = `npm install ${argsStr ? argsStr + ' ' : ''}${baseFlags}`.trim();
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+            console.log(`[Auto-Install] Menjalankan (${attempt}/${maxAttempts}): ${cmd}`);
+            execSync(cmd, { stdio: 'inherit', cwd: __dirname });
+            return true;
+        } catch (err) {
+            console.error(`[Auto-Install] Percobaan ${attempt}/${maxAttempts} gagal:`, err?.message || err);
+            if (attempt < maxAttempts) {
+                console.log('[Auto-Install] Mencoba ulang dalam 4 detik...');
+                const end = Date.now() + 4000;
+                while (Date.now() < end) {}
+            }
+        }
+    }
+    return false;
+}
+
 (function ensureDependencies() {
     try {
-        const { execSync } = require('child_process');
-        const requiredModules = ['chalk', 'axios', 'pino', '@whiskeysockets/baileys'];
-        const missing = requiredModules.some((mod) => {
-            try {
-                require.resolve(mod, { paths: [__dirname] });
-                return false;
-            } catch (_) {
-                return true;
-            }
-        });
-        if (missing) {
-            console.log('[Startup] Modul belum lengkap, menginstal dependencies...');
-            execSync('npm install --allow-git=all --no-audit', { stdio: 'inherit', cwd: __dirname });
-            console.log('[Startup] Dependencies berhasil diinstal.');
+        const missing = getMissingRequiredModules();
+        if (!missing.length) return;
+
+        console.log(`[Startup] Ditemukan ${missing.length} modul belum terpasang: ${missing.join(', ')}`);
+        console.log('[Startup] Menjalankan auto-install dependencies...');
+        runNpmInstallWithRetry('', 3);
+
+        const stillMissing = getMissingRequiredModules();
+        if (stillMissing.length) {
+            console.log(`[Startup] Masih kurang ${stillMissing.length} modul (${stillMissing.join(', ')}), mencoba install satuan...`);
+            const targets = stillMissing
+                .map((m) => (m === '@whiskeysockets/baileys' ? 'https://github.com/dinzid04/hutao-baileys.git' : m))
+                .join(' ');
+            runNpmInstallWithRetry(targets, 2);
+        }
+
+        const finalMissing = getMissingRequiredModules();
+        if (!finalMissing.length) {
+            console.log('[Startup] Semua dependencies lengkap dan siap dijalankan.');
+        } else {
+            console.warn('[Startup] Beberapa modul masih belum terpasang:', finalMissing.join(', '));
         }
     } catch (e) {
         console.error('[Startup] Gagal auto-install:', e.message);
@@ -25,6 +85,30 @@
         const fs = require('fs');
         const path = require('path');
         const baileysRoot = path.join(__dirname, 'node_modules', '@whiskeysockets', 'baileys', 'lib');
+
+        // Pastikan sharp di MessageBuilder bersifat opsional agar Termux ARM64 / Android bebas crash
+        const msgBuilderPath = path.join(baileysRoot, 'Utils', 'MessageBuilder.js');
+        if (fs.existsSync(msgBuilderPath)) {
+            let mbSrc = fs.readFileSync(msgBuilderPath, 'utf8');
+            let mbChanged = false;
+            if (mbSrc.includes('const sharp = require("sharp");')) {
+                mbSrc = mbSrc.replace(
+                    'const sharp = require("sharp");',
+                    'let sharp = null;\ntry { sharp = require("sharp"); } catch (_) {}'
+                );
+                mbChanged = true;
+            }
+            if (mbSrc.includes('static async resize(buffer, x, y, fit = "cover") {\n    return await sharp(buffer)')) {
+                mbSrc = mbSrc.replace(
+                    'static async resize(buffer, x, y, fit = "cover") {\n    return await sharp(buffer)',
+                    'static async resize(buffer, x, y, fit = "cover") {\n    if (!sharp) return Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer);\n    return await sharp(buffer)'
+                );
+                mbChanged = true;
+            }
+            if (mbChanged) {
+                fs.writeFileSync(msgBuilderPath, mbSrc, 'utf8');
+            }
+        }
 
         const baileysIndex = path.join(baileysRoot, 'index.js');
         if (fs.existsSync(baileysIndex)) {
@@ -1188,12 +1272,53 @@ require('events').EventEmitter.defaultMaxListeners = 100;
     }
 })();
 
+const _autoHealHistory = new Map();
+function tryAutoInstallMissingModule(err) {
+    try {
+        if (!err || err.code !== 'MODULE_NOT_FOUND') return false;
+        const msg = String(err.message || '');
+        const match = msg.match(/Cannot find module ['"]([^'"]+)['"]/i);
+        if (!match) return false;
+        const rawMod = match[1];
+        // Abaikan path relatif (./foo, ../bar, /abs/path)
+        if (rawMod.startsWith('.') || rawMod.startsWith('/')) return false;
+        // Ambil nama package utama (termasuk scoped @org/pkg)
+        const pkgName = rawMod.startsWith('@')
+            ? rawMod.split('/').slice(0, 2).join('/')
+            : rawMod.split('/')[0];
+        if (!pkgName || OPTIONAL_NATIVE_MODULES.has(pkgName)) {
+            console.warn(`[Auto-Heal] Modul opsional '${pkgName}' tidak tersedia di perangkat ini (dilewati otomatis).`);
+            return false;
+        }
+        const now = Date.now();
+        const prev = _autoHealHistory.get(pkgName) || { count: 0, ts: 0 };
+        if (now - prev.ts < 120000 && prev.count >= 2) {
+            console.error(`[Auto-Heal] Batas percobaan install '${pkgName}' tercapai, lewati agar tidak loop.`);
+            return false;
+        }
+        _autoHealHistory.set(pkgName, { count: (now - prev.ts < 120000 ? prev.count : 0) + 1, ts: now });
+        console.log(`[Auto-Heal] Modul '${pkgName}' belum terpasang — menginstal otomatis...`);
+        const target = pkgName === '@whiskeysockets/baileys'
+            ? 'https://github.com/dinzid04/hutao-baileys.git'
+            : pkgName;
+        const ok = runNpmInstallWithRetry(target, 2);
+        if (ok) {
+            console.log(`[Auto-Heal] Modul '${pkgName}' berhasil diinstal! Merestart bot...`);
+            setTimeout(() => process.exit(1), 1500);
+            return true;
+        }
+    } catch (_) {}
+    return false;
+}
+
 process.on('uncaughtException', (err) => {
     console.error('[Uncaught Exception]', err?.message || err);
+    tryAutoInstallMissingModule(err);
 });
 
 process.on('unhandledRejection', (err) => {
     console.error('[Unhandled Rejection]', err?.message || err);
+    tryAutoInstallMissingModule(err);
 });
 
 require('./settings');

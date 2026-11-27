@@ -1,14 +1,14 @@
 {
   "name": "hutao-md",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "description": "HuTao - MD Multi-Device WhatsApp Bot",
   "main": "index.js",
   "type": "commonjs",
   "scripts": {
     "start": "node index.js --pairing-code",
     "start:termux": "bash termux-start.sh",
-    "prestart": "node -e \"const fs=require('fs'),cp=require('child_process');if(!fs.existsSync('node_modules/@whiskeysockets/baileys')){console.log('[Prestart] node_modules belum ditemukan, menjalankan npm install...');cp.execSync('npm install --allow-git=all --no-audit',{stdio:'inherit'});}\"",
-    "install-deps": "npm install --allow-git=all --no-audit"
+    "prestart": "node -e \"const fs=require('fs'),cp=require('child_process');const pkg=JSON.parse(fs.readFileSync('package.json','utf8'));const miss=Object.keys(pkg.dependencies||{}).filter(m=>{try{require.resolve(m);return false;}catch{return true;}});if(miss.length){console.log('[Prestart] Modul belum lengkap ('+miss.join(', ')+'), menjalankan npm install...');cp.execSync('npm install --allow-git=all --no-audit --no-fund --fetch-retries=5',{stdio:'inherit'});}\"",
+    "install-deps": "npm install --allow-git=all --no-audit --no-fund --fetch-retries=5"
   },
   "engines": {
     "node": ">=18.0.0"
@@ -55,7 +55,6 @@
   "allowScripts": {
     "@ffmpeg-installer/linux-ia32@4.1.0": true,
     "@ffmpeg-installer/linux-x64@4.1.0": true,
-    "@whiskeysockets/baileys@8.6.91": true,
     "canvas@3.2.3": true,
     "protobufjs@6.8.8": true,
     "protobufjs@7.6.6": true,

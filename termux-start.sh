@@ -1,6 +1,6 @@
 #!/data/data/com.termux/files/usr/bin/env bash
 # HuTao - MD Termux Stable Runner
-# Menjaga bot tetap hidup stabil di Android Termux (wake-lock + auto-restart + batas RAM aman)
+# Menjaga bot tetap hidup stabil di Android Termux (wake-lock + auto-install modul + auto-restart + hemat RAM)
 
 set -u
 
@@ -26,10 +26,37 @@ if [ -n "$MISSING_PKGS" ]; then
     fi
 fi
 
-# Cek node_modules
-if [ ! -d "node_modules/@whiskeysockets/baileys" ]; then
-    echo "[Termux] Menginstal dependensi npm (mode aman Android ARM64)..."
-    npm install --allow-git=all --no-audit --no-fund
+# Cek kelengkapan seluruh modul wajib di package.json (otomatis install ulang jika ada yang kurang!)
+check_deps() {
+    node -e "
+      const fs = require('fs');
+      const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+      const miss = Object.keys(pkg.dependencies || {}).filter((m) => {
+        try { require.resolve(m); return false; } catch (_) { return true; }
+      });
+      if (miss.length) {
+        console.log('[Termux] Modul belum lengkap:', miss.join(', '));
+        process.exit(1);
+      }
+      process.exit(0);
+    "
+}
+
+if ! check_deps; then
+    echo "[Termux] Menginstal dependensi npm (mode aman Android ARM64, retry otomatis)..."
+    for ATTEMPT in 1 2 3; do
+        echo "[Termux] npm install percobaan $ATTEMPT/3..."
+        npm install --allow-git=all --no-audit --no-fund \
+            --fetch-retries=5 --fetch-retry-mintimeout=15000 --fetch-retry-maxtimeout=90000
+        if check_deps; then
+            echo "[Termux] Semua modul berhasil terpasang!"
+            break
+        fi
+        if [ "$ATTEMPT" -lt 3 ]; then
+            echo "[Termux] Koneksi terputus / modul belum lengkap, mencoba ulang dalam 5 detik..."
+            sleep 5
+        fi
+    done
 fi
 
 # Aktifkan wake-lock agar Android tidak membunuh proses Termux saat layar mati
@@ -67,7 +94,7 @@ while true; do
         CRASH_COUNT=$((CRASH_COUNT + 1))
     fi
 
-    # Backoff bertahap (3s, 5s, 10s, max 30s) agar tidak memakan CPU/baterai jika crash beruntun
+    # Backoff bertahap agar tidak memakan CPU/baterai jika crash beruntun
     if [ "$CRASH_COUNT" -le 1 ]; then
         WAIT_SEC=3
     elif [ "$CRASH_COUNT" -le 3 ]; then
