@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Gaple Live</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{background:transparent;font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#efe8d2;-webkit-font-smoothing:antialiased}
+.app{max-width:380px;margin:10px auto;background:#14281f;border:1px solid #2f4d3e;border-radius:14px;padding:12px}
+.hd{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:10px}
+.hd b{font:700 22px Georgia,'Times New Roman',serif;letter-spacing:.5px;display:block}
+.hd small{font-size:11px;color:#9fb5a7}
+.sc{font-size:12px;color:#c9d6cc}.sc b{font:700 16px Georgia,serif;color:#e0bb5c;display:inline}
+.row{display:flex;flex-wrap:wrap;gap:3px;justify-content:center;min-height:30px}
+.felt{margin:10px 0;background:#0d1d16;border:1px solid #2a4538;border-radius:10px;padding:10px 6px;min-height:120px;display:flex;align-items:center;justify-content:center}
+#chain{display:flex;flex-wrap:wrap;gap:2px;align-items:center;justify-content:center}
+#msg{font-size:12.5px;text-align:center;color:#d8dfd2;min-height:34px;margin-bottom:8px;line-height:1.4}
+.h{display:inline-block;cursor:pointer;opacity:.45;transition:transform .12s}
+.h.ok{opacity:1}.h.ok:active{transform:translateY(-4px)}
+.h.sel{transform:translateY(-6px)}
+#ctl{display:flex;gap:8px;justify-content:center;margin-top:10px;flex-wrap:wrap}
+button{font-family:inherit;font-weight:600;font-size:13px;border:0;border-radius:8px;padding:10px 16px;background:#e0bb5c;color:#1b1608;cursor:pointer}
+button.alt{background:#24403a;color:#efe8d2;border:1px solid #3b5e55}
+.cr{margin-top:12px;text-align:center;font-size:10.5px;color:#7f9a8b}
+</style></head><body>
+<div class="app">
+ <div class="hd"><div><b>Gaple</b><small id="sub"></small></div><div class="sc" id="sc"></div></div>
+ <div class="row" id="bot"></div>
+ <div class="felt"><div id="chain"></div></div>
+ <div id="msg"></div>
+ <div class="row" id="me"></div>
+ <div id="ctl"></div>
+ <div class="cr">Create By DinzID</div>
+</div>
+<script>
+const $=s=>document.getElementById(s),sum=t=>t[0]+t[1];
+const pp={0:[],1:[[.5,.5]],2:[[.28,.28],[.72,.72]],3:[[.28,.28],[.5,.5],[.72,.72]],4:[[.28,.28],[.72,.28],[.28,.72],[.72,.72]],5:[[.28,.28],[.72,.28],[.5,.5],[.28,.72],[.72,.72]],6:[[.3,.22],[.7,.22],[.3,.5],[.7,.5],[.3,.78],[.7,.78]]};
+function tile(t,o={}){
+  const s=o.s||1;let p='';
+  if(!o.back)[[t[0],0],[t[1],1]].forEach(([n,i])=>pp[n].forEach(([x,y])=>p+=`<circle cx="${i*24+x*24}" cy="${y*26}" r="2.5" fill="#26261f"/>`));
+  const body=`<rect x=".8" y=".8" width="46.4" height="24.4" rx="4" fill="${o.back?'#2d4a3d':'#f2ebd7'}" stroke="${o.hi?'#e0bb5c':'#00000055'}" stroke-width="${o.hi?2:1}"/>`+(o.back?'<circle cx="24" cy="13" r="3" fill="#44695a"/>':'<path d="M24 4V22" stroke="#a39c82" stroke-width="1"/>'+p);
+  return o.v?`<svg width="${26*s}" height="${48*s}" viewBox="0 0 26 48"><g transform="translate(26 0) rotate(90)">${body}</g></svg>`:`<svg width="${48*s}" height="${26*s}" viewBox="0 0 48 26">${body}</svg>`;
+}
+let S={sc:{me:0,bot:0}};
+function ends(){return[S.chain[0][0],S.chain[S.chain.length-1][1]]}
+function sides(t){const[L,R]=ends(),r=[];if(t[0]==L||t[1]==L)r.push('L');if(t[0]==R||t[1]==R)r.push('R');if(L==R&&r.length==2)r.pop();return r}
+function play(w,i,s){
+  const t=S[w][i],[L,R]=ends();
+  if(s=='L')S.chain.unshift(t[1]==L?[t[0],t[1]]:[t[1],t[0]]);else S.chain.push(t[0]==R?[t[0],t[1]]:[t[1],t[0]]);
+  S[w].splice(i,1);S.pass=0;
+  if(!S[w].length)finish(w);
+}
+function finish(w){
+  S.over=true;
+  if(w=='block'){
+    const a=S.me.reduce((x,t)=>x+sum(t),0),b=S.bot.reduce((x,t)=>x+sum(t),0);
+    if(a==b){S.msg='Kartu mati dan seri.';return}
+    w=a<b?'me':'bot';S.sc[w]+=Math.abs(a-b);
+    S.msg=`Kartu mati. ${w=='me'?'Kamu':'Bot'} menang dengan sisa angka lebih kecil (${a} vs ${b}).`;return;
+  }
+  const o=w=='me'?'bot':'me',pts=S[o].reduce((x,t)=>x+sum(t),0);S.sc[w]+=pts;
+  S.msg=w=='me'?`Kamu habis duluan. +${pts} poin.`:`Bot habis duluan. Bot dapat +${pts} poin.`;
+}
+function newRound(){
+  const all=[];for(let i=0;i<7;i++)for(let j=i;j<7;j++)all.push([i,j]);
+  all.sort(()=>Math.random()-.5);
+  S={me:all.slice(0,7),bot:all.slice(7,14),yard:all.slice(14),chain:[],turn:'me',pass:0,over:false,pick:null,sc:S.sc,msg:''};
+  const key=t=>t[0]==t[1]?100+t[0]:sum(t);
+  const best=h=>Math.max(...h.map(key));
+  const w=best(S.me)>=best(S.bot)?'me':'bot',h=S[w];
+  let bi=0;h.forEach((t,i)=>{if(key(t)>key(h[bi]))bi=i});
+  S.chain=[h[bi]];const f=h[bi];h.splice(bi,1);
+  S.turn=w=='me'?'bot':'me';
+  S.msg=`${w=='me'?'Kamu':'Bot'} jalan duluan dengan ${f[0]}-${f[1]}.`;
+  draw();if(S.turn=='bot')setTimeout(botMove,900);
+}
+function pick(i){
+  if(S.turn!='me'||S.over)return;
+  const s=sides(S.me[i]);
+  if(!s.length){S.msg='Kartu itu tidak cocok dengan ujung rantai.';return draw()}
+  if(s.length==1)return mine(i,s[0]);
+  S.pick=S.pick===i?null:i;draw();
+}
+function mine(i,s){
+  play('me',i,s);S.pick=null;
+  if(!S.over){S.turn='bot';S.msg='Giliran bot...';setTimeout(botMove,800)}
+  draw();
+}
+function drawCard(){
+  if(S.turn!='me'||!S.yard.length)return;
+  S.me.push(S.yard.pop());S.msg='Kamu menarik satu kartu.';draw();
+}
+function passMe(){
+  S.pass++;S.turn='bot';S.msg='Kamu lewat.';
+  if(S.pass>=2)finish('block');else setTimeout(botMove,800);
+  draw();
+}
+function botMove(){
+  if(S.over||S.turn!='bot')return;
+  let drew=0;
+  for(;;){
+    const o=[];S.bot.forEach((t,i)=>sides(t).forEach(s=>o.push([i,s])));
+    if(o.length){
+      o.sort((a,b)=>(S.bot[b[0]][0]==S.bot[b[0]][1]?20:0)+sum(S.bot[b[0]])-(S.bot[a[0]][0]==S.bot[a[0]][1]?20:0)-sum(S.bot[a[0]]));
+      const t=S.bot[o[0][0]];play('bot',o[0][0],o[0][1]);
+      if(!S.over){S.turn='me';S.msg=`Bot main ${t[0]}-${t[1]}${drew?` setelah menarik ${drew} kartu`:''}.`}
+      break;
+    }
+    if(S.yard.length){S.bot.push(S.yard.pop());drew++;continue}
+    S.pass++;
+    if(S.pass>=2)finish('block');else{S.turn='me';S.msg='Bot lewat.'}
+    break;
+  }
+  draw();
+}
+function draw(){
+  $('sub').textContent=`Tumpukan ${S.yard.length} kartu | Rantai ${S.chain.length}`;
+  $('sc').innerHTML=`Kamu <b>${S.sc.me}</b> : <b>${S.sc.bot}</b> Bot`;
+  $('bot').innerHTML=S.bot.map(()=>tile([0,0],{back:1,v:1,s:.55})).join('');
+  $('chain').innerHTML=S.chain.map(t=>tile(t,{v:t[0]==t[1]})).join('');
+  const mt=S.turn=='me'&&!S.over;
+  $('me').innerHTML=S.me.map((t,i)=>{const ok=mt&&sides(t).length;return`<span class="h ${ok?'ok':''} ${S.pick===i?'sel':''}" onclick="pick(${i})">${tile(t,{hi:ok})}</span>`}).join('');
+  $('msg').textContent=S.msg;
+  const c=$('ctl'),[L,R]=S.chain.length?ends():[0,0];let h='';
+  if(S.over)h='<button onclick="newRound()">Ronde baru</button>';
+  else if(mt&&S.pick!==null)h=`<button onclick="mine(S.pick,'L')">Kiri (${L})</button><button onclick="mine(S.pick,'R')">Kanan (${R})</button><button class="alt" onclick="S.pick=null;draw()">Batal</button>`;
+  else if(mt&&!S.me.some(t=>sides(t).length))h=S.yard.length?`<button onclick="drawCard()">Tarik kartu (${S.yard.length})</button>`:'<button onclick="passMe()">Lewati giliran</button>';
+  else if(mt)h='<span style="font-size:11px;color:#8fa699">Ujung rantai: '+L+' dan '+R+'. Pilih kartu yang menyala.</span>';
+  c.innerHTML=h;
+}
+newRound();
+</script></body></html>

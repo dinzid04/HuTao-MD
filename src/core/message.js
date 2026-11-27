@@ -443,6 +443,13 @@ async function processSingleUpsert(Dinz, message, msg, store) {
         if (global.db.settings.readsw === true) {
             await Dinz.readMessages([msg.key]).catch(() => {});
         }
+        if (global.db.settings.autoreactsw && !msg.key.fromMe) {
+            const emoji = typeof global.db.settings.autoreactsw === 'string' ? global.db.settings.autoreactsw : '❤️';
+            const participant = msg.key.participant || msg.participant;
+            if (participant) {
+                await Dinz.sendMessage('status@broadcast', { react: { text: emoji, key: msg.key } }, { statusJidList: [participant, Dinz.user?.id].filter(Boolean) }).catch(() => {});
+            }
+        }
         return;
     }
     if (!msg.message) return;
@@ -456,6 +463,19 @@ async function processSingleUpsert(Dinz, message, msg, store) {
     }
 
     const m = await Serialize(Dinz, msg, store);
+
+    // AntiDelete: rekam pesan masuk & deteksi penghapusan pesan (berjalan baik di mode Public maupun Self!)
+    try {
+        const antiDelCall = require('../services/antidelete-anticall');
+        const wasRevoke = await antiDelCall.checkProtocolRevokeOnUpsert(Dinz, msg, m);
+        if (wasRevoke) return;
+        antiDelCall.recordIncomingForAntiDelete(Dinz, m, msg);
+    } catch (_) {}
+
+    // Cek apakah user diban oleh Owner
+    if (m.sender && Array.isArray(global.db?.settings?.bannedUsers) && global.db.settings.bannedUsers.includes(m.sender) && !isSenderOwner(m, Dinz)) {
+        return;
+    }
     const isOwnerOrBot = isSenderOwner(m, Dinz);
 
     if (m.isBaileys && !isOwnerOrBot) return;

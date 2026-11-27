@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ular Tangga Live</title>
+<style>
+:root{--bg:#0f1115;--card:#181b22;--card2:#20242d;--ink:#fff;--soft:#a3aab8;--line:#2b303b;--acc:#22c55e;--red:#ef4444;--warn:#f59e0b;--sys:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{background:transparent;color:var(--ink);font-family:var(--sys);min-height:100vh;overflow-x:hidden;-webkit-font-smoothing:antialiased}
+.stage{display:flex;justify-content:center;padding:14px 10px}
+.app{width:100%;max-width:380px;border-radius:16px;overflow:hidden;background:linear-gradient(180deg,#232733 0%,#171a21 30%,var(--bg) 70%);box-shadow:0 18px 40px rgba(0,0,0,.55);padding:14px 12px 12px}
+.top{display:flex;align-items:center;gap:9px;margin-bottom:12px}
+.logo{width:32px;height:32px;border-radius:9px;background:#1f7a3a;flex:none;display:flex;align-items:center;justify-content:center}
+.meta{flex:1;min-width:0}.title{font-size:14px;font-weight:800}.sub{font-size:10.5px;color:var(--soft);margin-top:2px}
+.chips{display:flex;gap:6px;margin-bottom:10px}
+.chip{flex:1;border:1px solid var(--line);background:var(--card);color:var(--soft);border-radius:20px;padding:6px 0;font-size:12px;font-weight:700;cursor:pointer}
+.chip.on{background:var(--acc);border-color:var(--acc);color:#04130a}
+.pls{display:flex;gap:6px;margin-bottom:10px}
+.pl{flex:1;min-width:0;background:var(--card);border:1.5px solid var(--line);border-radius:11px;padding:6px 8px;display:flex;align-items:center;gap:7px;transition:.2s}
+.pl.act{border-color:var(--acc);box-shadow:0 0 0 3px rgba(34,197,94,.14)}
+.pl i{width:12px;height:12px;border-radius:50%;flex:none;box-shadow:inset 0 -2px 0 rgba(0,0,0,.25)}
+.pl .n{font-size:10px;color:var(--soft);font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.pl .v{font-size:15px;font-weight:800;line-height:1.1}
+.boardw{border-radius:12px;overflow:hidden;box-shadow:0 8px 20px rgba(0,0,0,.5)}
+.boardw svg{display:block;width:100%;height:auto}
+.ctl{display:flex;align-items:center;gap:12px;margin-top:10px}
+.die{width:62px;height:62px;flex:none;cursor:pointer;filter:drop-shadow(0 4px 6px rgba(0,0,0,.45))}
+.die.roll{animation:shake .12s linear infinite}
+@keyframes shake{0%{transform:rotate(-10deg) scale(1.05)}50%{transform:rotate(10deg) scale(.96)}100%{transform:rotate(-10deg) scale(1.05)}}
+.msg{flex:1;font-size:12.5px;font-weight:700;color:var(--soft);line-height:1.35;min-height:48px;display:flex;align-items:center}
+.msg.win{color:var(--acc)}.msg.lose{color:var(--red)}
+.row{display:flex;gap:8px;margin-top:10px}
+.btn{flex:1;border:0;border-radius:10px;padding:10px 12px;font-size:13px;font-weight:800;cursor:pointer;background:var(--acc);color:#04130a}
+.btn[disabled]{opacity:.45}
+.btn.alt{background:var(--card2);color:var(--ink);border:1px solid var(--line)}
+.stat{display:flex;justify-content:center;gap:14px;margin-top:10px;font-size:11px;color:var(--soft)}.stat b{color:var(--ink)}
+.cr{text-align:center;margin-top:10px;font-size:10px;color:#6b7280;letter-spacing:.3px}.cr b{color:#9aa3b2}
+.pawn{transition:transform .22s cubic-bezier(.3,1.4,.5,1)}
+</style></head><body>
+<div class="stage"><div class="app">
+  <div class="top">
+    <div class="logo"><svg width="22" height="22" viewBox="0 0 22 22"><path d="M4 18c6 0 2-7 7-7s2-7 7-7" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"/><circle cx="18" cy="4" r="2" fill="#fff"/></svg></div>
+    <div class="meta"><div class="title">Ular Tangga Live</div><div class="sub" id="sub">Lawan 2 bot • dadu 6 jalan lagi</div></div>
+  </div>
+  <div class="chips" id="np"><button class="chip" data-n="1">1 Bot</button><button class="chip on" data-n="2">2 Bot</button><button class="chip" data-n="3">3 Bot</button></div>
+  <div class="pls" id="pls"></div>
+  <div class="boardw"><svg id="bd" viewBox="0 0 360 360"></svg></div>
+  <div class="ctl">
+    <svg class="die" id="die" viewBox="0 0 64 64"></svg>
+    <div class="msg" id="msg">Ketuk dadu untuk melempar</div>
+  </div>
+  <div class="row"><button class="btn" id="roll">Lempar Dadu</button><button class="btn alt" id="rs">Main Ulang</button></div>
+  <div class="stat"><span>Menang <b id="w">0</b></span><span>Kalah <b id="l">0</b></span></div>
+  <div class="cr">Create By <b>DinzID</b></div>
+</div></div>
+
+<script>
+(function(){
+const $=id=>document.getElementById(id);
+const LAD={4:14,9:31,20:38,28:84,40:59,51:67,63:81,71:91};
+const SNK={17:7,54:34,62:19,64:60,87:24,93:73,95:75,98:79};
+const COL=['#ef4444','#3b82f6','#f59e0b','#a855f7'];
+const NAME=['Kamu','Bot A','Bot B','Bot C'];
+const CS=36;
+function ctr(n){const i=n-1,r=Math.floor(i/10),c=i%10,x=r%2===0?c:9-c;return[x*CS+CS/2,(9-r)*CS+CS/2]}
+
+/* ---------- papan statis ---------- */
+function board(){
+  let s='<defs><linearGradient id="bg1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f6e7c1"/><stop offset="1" stop-color="#ecd29a"/></linearGradient>'
+   +'<linearGradient id="bg2" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8fd3a4"/><stop offset="1" stop-color="#5fb37b"/></linearGradient>'
+   +'<linearGradient id="sn1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#e2574c"/><stop offset="1" stop-color="#a82a2a"/></linearGradient>'
+   +'<linearGradient id="sn2" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2fa36b"/><stop offset="1" stop-color="#176a43"/></linearGradient>'
+   +'<linearGradient id="sn3" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4a8fe0"/><stop offset="1" stop-color="#2a56a8"/></linearGradient>'
+   +'<filter id="sh" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="1" dy="1.6" stdDeviation="1.3" flood-opacity=".4"/></filter></defs>';
+  s+='<rect width="360" height="360" fill="#7a4a24"/>';
+  for(let n=1;n<=100;n++){const i=n-1,r=Math.floor(i/10),c=i%10,x=(r%2===0?c:9-c)*CS,y=(9-r)*CS;
+    s+=`<rect x="${x}" y="${y}" width="${CS}" height="${CS}" fill="url(#${(r+c)%2?'bg1':'bg2'})" stroke="#7a4a24" stroke-width=".6"/>`;
+    s+=`<text x="${x+3}" y="${y+10}" font-size="8.5" font-weight="700" fill="#5a3a1a" opacity=".75" font-family="sans-serif">${n}</text>`}
+  const[fx,fy]=ctr(100);
+  s+=`<g transform="translate(${fx-12},${fy-12})"><rect x="3" y="2" width="1.8" height="20" fill="#5a3a1a"/><path d="M5 3h15l-3.5 4.5L20 12H5z" fill="#e23b3b"/></g>`;
+  const sc=['sn1','sn2','sn3'];let k=0;
+  for(const a in LAD)s+=ladder(+a,LAD[a]);
+  for(const a in SNK)s+=snake(+a,SNK[a],sc[k++%3]);
+  return s}
+
+function ladder(a,b){
+  const[x1,y1]=ctr(a),[x2,y2]=ctr(b),dx=x2-x1,dy=y2-y1,L=Math.hypot(dx,dy),ux=dx/L,uy=dy/L,px=-uy*5,py=ux*5;
+  let s=`<g filter="url(#sh)"><path d="M${x1+px} ${y1+py}L${x2+px} ${y2+py}M${x1-px} ${y1-py}L${x2-px} ${y2-py}" stroke="#8a5a2b" stroke-width="3.2" stroke-linecap="round"/>`;
+  const n=Math.max(3,Math.round(L/13));
+  for(let i=1;i<n;i++){const t=i/n,cx=x1+dx*t,cy=y1+dy*t;s+=`<path d="M${cx+px} ${cy+py}L${cx-px} ${cy-py}" stroke="#c28a4a" stroke-width="2.6" stroke-linecap="round"/>`}
+  return s+'</g>'}
+
+function snake(a,b,g){
+  const[x1,y1]=ctr(a),[x2,y2]=ctr(b),dx=x2-x1,dy=y2-y1,L=Math.hypot(dx,dy),nx=-dy/L,ny=dx/L,amp=Math.min(26,L*.22);
+  const p=[[x1,y1],[x1+dx*.25+nx*amp,y1+dy*.25+ny*amp],[x1+dx*.5,y1+dy*.5],[x1+dx*.75-nx*amp,y1+dy*.75-ny*amp],[x2,y2]];
+  const d=`M${p[0][0]} ${p[0][1]}C${p[1][0]} ${p[1][1]} ${p[1][0]} ${p[1][1]} ${p[2][0]} ${p[2][1]}S${p[3][0]} ${p[3][1]} ${p[4][0]} ${p[4][1]}`;
+  const hd=Math.atan2(p[1][1]-p[0][1],p[1][0]-p[0][0])*180/Math.PI;
+  return `<g filter="url(#sh)"><path d="${d}" fill="none" stroke="url(#${g})" stroke-width="8.5" stroke-linecap="round"/>`
+   +`<path d="${d}" fill="none" stroke="#fff" stroke-opacity=".38" stroke-width="3.4" stroke-dasharray="2.5 7" stroke-linecap="round"/>`
+   +`<g transform="translate(${x1} ${y1}) rotate(${hd})"><ellipse cx="2" cy="0" rx="8.5" ry="6.6" fill="url(#${g})"/><path d="M9 0l6-2m-6 2l6 2" stroke="#e02d2d" stroke-width="1.2" stroke-linecap="round"/><circle cx="3.5" cy="-3" r="1.9" fill="#fff"/><circle cx="3.5" cy="3" r="1.9" fill="#fff"/><circle cx="4" cy="-3" r=".95" fill="#111"/><circle cx="4" cy="3" r=".95" fill="#111"/></g></g>`}
+
+/* ---------- dadu ---------- */
+const PIPS={1:[[32,32]],2:[[20,20],[44,44]],3:[[20,20],[32,32],[44,44]],4:[[20,20],[44,20],[20,44],[44,44]],5:[[20,20],[44,20],[32,32],[20,44],[44,44]],6:[[20,18],[44,18],[20,32],[44,32],[20,46],[44,46]]};
+function die(v){let s='<rect x="3" y="3" width="58" height="58" rx="13" fill="#fafafa" stroke="#d4d7dd" stroke-width="1.5"/><rect x="3" y="3" width="58" height="29" rx="13" fill="#fff" opacity=".6"/>';
+  PIPS[v].forEach(p=>{s+=`<circle cx="${p[0]}" cy="${p[1]}" r="5.2" fill="${v===1?'#e23b3b':'#1f2430'}"/>`});$('die').innerHTML=s}
+
+/* ---------- state ---------- */
+let P,turn,over,busy,gid=0,nb=2,st={w:0,l:0};
+try{st=Object.assign(st,JSON.parse(localStorage.getItem('yt_ular')||'{}'))}catch(e){}
+const sv=()=>{try{localStorage.setItem('yt_ular',JSON.stringify(st))}catch(e){}};
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const dead=g=>g!==gid;
+function msg(t,c){const m=$('msg');m.textContent=t;m.className='msg'+(c?' '+c:'')}
+
+function init(){
+  P=[];for(let i=0;i<=nb;i++)P.push({n:NAME[i],pos:0,c:COL[i]});
+  gid++;turn=0;over=false;busy=false;
+  $('bd').innerHTML=board()+'<g id="pw"></g>';
+  P.forEach((p,i)=>{const[x,y]=[0,0];$('pw').insertAdjacentHTML('beforeend',`<g class="pawn" id="pn${i}" style="transform:translate(${-20}px,${340}px)">${pawn(p.c)}</g>`)});
+  placeAll();die(1);info();msg('Giliranmu — ketuk dadu');$('roll').disabled=false;$('sub').textContent=`Lawan ${nb} bot • dadu 6 jalan lagi`}
+
+function pawn(c){return `<ellipse cx="0" cy="8" rx="7.5" ry="3" fill="#000" opacity=".3"/><path d="M-6 8c0-5 2-6 3-9-3-1-4-3-4-5a5 5 0 0110 0c0 2-1 4-4 5 1 3 3 4 3 9z" fill="${c}" stroke="#fff" stroke-width="1.3"/><circle cx="-1.8" cy="-8" r="1.6" fill="#fff" opacity=".6"/>`}
+
+function offs(i,n){const o=[[0,0],[-6,-4],[6,-4],[0,5]];return o[i%4]}
+function place(i,pos){const el=$('pn'+i);let x,y;
+  if(pos===0){x=9+i*11;y=347}else{[x,y]=ctr(pos);const q=P.map((p,k)=>k).filter(k=>P[k].pos===pos);const o=q.length>1?offs(q.indexOf(i),q.length):[0,0];x+=o[0];y+=o[1]}
+  el.style.transform=`translate(${x}px,${y}px)`}
+function placeAll(){P.forEach((p,i)=>place(i,p.pos))}
+function info(){$('pls').innerHTML=P.map((p,i)=>`<div class="pl${i===turn&&!over?' act':''}"><i style="background:${p.c}"></i><div style="min-width:0"><div class="n">${p.n}</div><div class="v">${p.pos||'Start'}</div></div></div>`).join('');
+  $('w').textContent=st.w;$('l').textContent=st.l}
+
+async function walk(i,to,g){const p=P[i];const dir=to>=p.pos?1:-1;while(p.pos!==to&&!dead(g)){p.pos+=dir;place(i,p.pos);await sleep(170)}}
+
+async function roll(i){
+  const g=gid;busy=true;$('roll').disabled=true;const d=$('die');d.classList.add('roll');
+  for(let k=0;k<7;k++){die(1+Math.floor(Math.random()*6));await sleep(70)}
+  if(dead(g))return -2;
+  const v=1+Math.floor(Math.random()*6);d.classList.remove('roll');die(v);
+  const p=P[i];let t=`${p.n} dapat ${v}`;
+  let target=p.pos+v;
+  if(target>100){target=100-(target-100);t+=' — kelebihan, mundur!'}
+  msg(t);await sleep(250);await walk(i,Math.max(0,target),g);if(dead(g))return -2;
+  let note='';
+  if(LAD[p.pos]){note=`🪜 naik tangga ${p.pos}→${LAD[p.pos]}`;msg(`${p.n}: ${note}`);await sleep(350);const to=LAD[p.pos];p.pos=to;place(i,to);await sleep(450);if(dead(g))return -2}
+  else if(SNK[p.pos]){note=`🐍 digigit ular ${p.pos}→${SNK[p.pos]}`;msg(`${p.n}: ${note}`);await sleep(350);const to=SNK[p.pos];p.pos=to;place(i,to);await sleep(450);if(dead(g))return -2}
+  P.forEach((o,k)=>{if(k!==i&&o.pos===p.pos&&p.pos>0&&p.pos<100){o.pos=0;note+=` 💥 ${o.n} kembali ke start`;}});
+  placeAll();info();
+  if(note)msg(`${p.n} dapat ${v} → kotak ${p.pos}. ${note}`);else msg(`${p.n} dapat ${v} → kotak ${p.pos}`);
+  if(p.pos===100){over=true;busy=false;info();
+    if(i===0){st.w++;msg('🏆 Kamu sampai kotak 100 — MENANG!','win')}else{st.l++;msg(`🏁 ${p.n} sampai kotak 100. Kamu kalah!`,'lose')}
+    sv();info();$('roll').disabled=true;return}
+  await sleep(600);if(dead(g))return -2;
+  if(v===6){msg(`${p.n} dapat 6 — jalan lagi!`);await sleep(600);return i}
+  return -1}
+
+async function playTurn(){
+  if(busy||over||turn!==0)return;
+  const g=gid;let cur=0;
+  while(!over){
+    let again=true;
+    while(again&&!over){const r=await roll(cur);if(r===-2||dead(g))return;again=(r===cur)}
+    if(over)return;
+    cur=(cur+1)%P.length;turn=cur;info();
+    if(cur===0){busy=false;$('roll').disabled=false;msg('Giliranmu — ketuk dadu');return}
+    await sleep(400);if(dead(g))return}}
+$('roll').onclick=playTurn;$('die').onclick=playTurn;
+$('rs').onclick=init;
+$('np').addEventListener('click',e=>{const n=e.target.dataset&&e.target.dataset.n;if(!n)return;nb=+n;[].forEach.call($('np').children,x=>x.classList.toggle('on',x===e.target));init()});
+init();
+})();
+</script>
+</body></html>

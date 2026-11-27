@@ -158,7 +158,28 @@ const YOUHU_GAMES = {
         title: 'Katla ID',
         trustedSources: ['nox.dev'],
         desc: 'Tebak kata Bahasa Indonesia 5 huruf dalam 6 percobaan.'
-    }
+    },
+    ludo: { key: 'ludo', name: 'Ludo Live vs Bot', emoji: '🎲', localFile: 'ludo.html', title: 'Ludo Live', trustedSources: ['nox.dev'], desc: 'Ludo 4 pemain lawan bot lengkap dengan dadu, petak aman & makan bidak.' },
+    uno: { key: 'uno', name: 'UNO 108 Kartu', emoji: '🃏', localFile: 'uno.html', title: 'UNO Live', trustedSources: ['nox.dev'], desc: 'UNO 108 kartu lawan 1–3 bot lengkap dengan Skip, Reverse, +2 & Wild.' },
+    poker: { key: 'poker', name: 'Texas Holdem Poker', emoji: '♠️', localFile: 'poker.html', title: 'Texas Poker', trustedSources: ['nox.dev'], desc: 'Poker Texas Holdem interaktif melawan AI.' },
+    gaple: { key: 'gaple', name: 'Domino Gaple 28', emoji: '🁢', localFile: 'gaple.html', title: 'Domino Gaple', trustedSources: ['nox.dev'], desc: 'Gaple domino tradisional 28 kartu lawan bot.' },
+    dam: { key: 'dam', name: 'Dam / Checkers', emoji: '⚫', localFile: 'dam.html', title: 'Dam Checkers', trustedSources: ['nox.dev'], desc: 'Dam / Checkers lawan AI 3 tingkat kesulitan & lompat beruntun.' },
+    othello: { key: 'othello', name: 'Othello Reversi 8x8', emoji: '⚪', localFile: 'othello.html', title: 'Othello 8x8', trustedSources: ['nox.dev'], desc: 'Othello 8x8 strategis melawan AI dengan indikator langkah.' },
+    ceme: { key: 'ceme', name: 'Ceme Bandar', emoji: '🎴', localFile: 'ceme.html', title: 'Ceme Live', trustedSources: ['nox.dev'], desc: 'Adu kartu Ceme melawan bandar bot.' },
+    bjrich: { key: 'bjrich', name: 'Blackjack Casino UI', emoji: '🂡', localFile: 'blackjack.html', title: 'Blackjack 21', trustedSources: ['nox.dev'], desc: 'Blackjack 21 interaktif dengan Hit, Stand & Double Down.' },
+    mafia: { key: 'mafia', name: 'Mafia 7 Pemain', emoji: '🕵️', localFile: 'mafia.html', title: 'Mafia Mystery', trustedSources: ['nox.dev'], desc: 'Game deduksi sosial 7 pemain (Detektif, Dokter, Mafia & Warga).' },
+    undercover: { key: 'undercover', name: 'Undercover Agen', emoji: '🎭', localFile: 'undercover.html', title: 'Undercover', trustedSources: ['nox.dev'], desc: 'Temukan penyusup lewat petunjuk kata & voting.' },
+    ulartanggarich: { key: 'ulartanggarich', name: 'Ular Tangga Live', emoji: '🪜', localFile: 'ulartangga.html', title: 'Ular Tangga', trustedSources: ['nox.dev'], desc: 'Ular Tangga interaktif dengan animasi dadu melawan 1–3 bot.' },
+    sudoku: { key: 'sudoku', name: 'Sudoku 9x9', emoji: '🔢', localFile: 'sudoku.html', title: 'Sudoku 9x9', trustedSources: ['nox.dev'], desc: 'Sudoku 9x9 interaktif lengkap dengan validasi & tombol Hint.' },
+    pong: { key: 'pong', name: 'Neon Ping-Pong', emoji: '🏓', localFile: 'pong.html', title: 'Neon Pong', trustedSources: ['nox.dev'], desc: 'Duel Ping-Pong neon cepat melawan AI (7 poin menang).' },
+    geodash: { key: 'geodash', name: 'Geometry Dash v2', emoji: '⚡', localFile: 'geodash.html', title: 'Geo Dash v2', trustedSources: ['nox.dev'], desc: 'Lompati rintangan dengan portal pesawat, bola, UFO & wave.' },
+    isekai: { key: 'isekai', name: 'RPG Isekai Mini', emoji: '🗡️', localFile: 'isekai.html', title: 'Isekai RPG', trustedSources: ['nox.dev'], desc: 'Petualangan RPG Isekai langsung di layar kartu chat.' },
+    typing: { key: 'typing', name: 'Typing Speed WPM', emoji: '⌨️', localFile: 'typing.html', title: 'Typing Test', trustedSources: ['nox.dev'], desc: 'Uji kecepatan ketik WPM & akurasi mode 30/60 detik.' },
+    whack: { key: 'whack', name: 'Whack-a-Slime', emoji: '🔨', localFile: 'whack.html', title: 'Whack Slime', trustedSources: ['nox.dev'], desc: 'Ketuk slime secepat mungkin dalam 30 detik & hindari bom.' },
+    catchstar: { key: 'catchstar', name: 'Catch Falling Stars', emoji: '🌟', localFile: 'catchstar.html', title: 'Catch Stars', trustedSources: ['nox.dev'], desc: 'Tangkap bintang jatuh & hindari meteor gelap.' },
+    colortest: { key: 'colortest', name: 'Stroop Color Reflex', emoji: '🎨', localFile: 'colortest.html', title: 'Color Brain Test', trustedSources: ['nox.dev'], desc: 'Tes fokus otak: pilih warna tintanya, bukan tulisannya!' },
+    destroy: { key: 'destroy', name: 'Pixel Destroyer', emoji: '💥', localFile: 'destroy.html', title: 'Pixel Destroyer', trustedSources: ['nox.dev'], desc: 'Hancurkan blok situs pixel dengan senjata arcade.' },
+    mathrich: { key: 'mathrich', name: 'Math Speed Combo', emoji: '🧮', localFile: 'mathrich.html', title: 'Math Combo', trustedSources: ['nox.dev'], desc: 'Hitung cepat 60 detik dengan combo multiplier & rekor.' }
 };
 
 function stringifyEscaped(obj) {

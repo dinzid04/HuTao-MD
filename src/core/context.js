@@ -119,6 +119,18 @@ function normalizeBotData(raw, isJadibot = false) {
         const parsedStyle = parseInt(merged.settings.menuStyle, 10);
         merged.settings.menuStyle = (parsedStyle >= 1 && parsedStyle <= 20) ? parsedStyle : 1;
     }
+    if (typeof merged.settings.antidelete !== 'boolean') {
+        merged.settings.antidelete = false;
+    }
+    if (merged.settings.anticall !== 'block' && merged.settings.anticall !== 'reject' && typeof merged.settings.anticall !== 'boolean') {
+        merged.settings.anticall = false;
+    }
+    if (typeof merged.settings.autobio !== 'boolean') {
+        merged.settings.autobio = false;
+    }
+    if (typeof merged.settings.autoreactsw !== 'boolean' && typeof merged.settings.autoreactsw !== 'string') {
+        merged.settings.autoreactsw = false;
+    }
 
     for (const [key, factory] of Object.entries(STORE_DEFAULTS)) {
         if (typeof merged.store[key] === 'undefined' || merged.store[key] === null) {
@@ -154,6 +166,11 @@ function normalizeRootDb(raw) {
     }
 
     base.jadibot = { registry, clones };
+    if (raw && raw._meta && typeof raw._meta === 'object') {
+        base._meta = { updatedAt: Number(raw._meta.updatedAt) || 0 };
+    } else {
+        base._meta = { updatedAt: 0 };
+    }
     return base;
 }
 
@@ -198,6 +215,9 @@ function writeRootDbToDisk(rootObj, force = false) {
     const dir = path.dirname(dbFile);
     if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir, { recursive: true });
+    }
+    if (rootObj && typeof rootObj === 'object') {
+        rootObj._meta = { updatedAt: Date.now() };
     }
     // Gunakan JSON compact (tanpa indentasi 2 spasi) -> ~40% lebih kecil & 3x lebih cepat di-stringify!
     const payload = JSON.stringify(rootObj);
@@ -323,11 +343,29 @@ async function initStorage() {
 
     activeStorageMode = 'mongodb';
     if (payload && typeof payload === 'object' && Object.keys(payload).length > 0) {
+        const cloudNorm = normalizeRootDb(payload);
+        const localTs = Number(localDb?._meta?.updatedAt || 0);
+        const cloudTs = Number(cloudNorm?._meta?.updatedAt || 0);
+        const localSettingsTs = Number(localDb?.settings?._updatedAt || localTs);
+        const cloudSettingsTs = Number(cloudNorm?.settings?._updatedAt || cloudTs);
+
+        // Jika settings lokal di disk lebih baru (misal habis .setmenu 8 lalu langsung .updatesc / restart panel
+        // sebelum antrean MongoDB 60 detik sempat jalan), pertahankan settings lokal & langsung sinkronkan ke MongoDB!
+        if (localSettingsTs > cloudSettingsTs && localDb?.settings) {
+            cloudNorm.settings = { ...cloudNorm.settings, ...localDb.settings };
+        }
+        if (localTs > cloudTs && cloudTs > 0) {
+            global._mainDb = localDb;
+            writeRootDbToDisk(global._mainDb, true);
+            await pushRootDbToMongo(true);
+            return { mode: 'mongodb', source: 'local_newer_synced', data: global._mainDb };
+        }
+
         const rawBefore = JSON.stringify(payload);
-        global._mainDb = normalizeRootDb(payload);
+        global._mainDb = cloudNorm;
         const normAfter = JSON.stringify(global._mainDb);
         writeRootDbToDisk(global._mainDb, true);
-        if (normAfter !== rawBefore) {
+        if (normAfter !== rawBefore || localSettingsTs > cloudSettingsTs) {
             await pushRootDbToMongo(true);
         } else {
             lastMongoSerialized = normAfter;
@@ -393,6 +431,13 @@ function saveRootDb() {
     scheduleDiskWrite();
     scheduleMongoPush();
     return getDatabasePath();
+}
+
+async function saveSettingsNow() {
+    const root = getRootDb();
+    if (!root.settings || typeof root.settings !== 'object') root.settings = {};
+    root.settings._updatedAt = Date.now();
+    return flushStorage(true);
 }
 
 function normalizeNumber(raw) {
@@ -802,6 +847,7 @@ module.exports = {
     getRootDb,
     reloadRootDb,
     saveRootDb,
+    saveSettingsNow,
     runWithBotContext,
     isJadibotContext,
     getJadibotNumber,

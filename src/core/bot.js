@@ -28,6 +28,7 @@ const jadibotMgr = require('../handlers/jadibot');
 const { beautifyLegacyCaption } = require('../utils/formatter');
 const { attachChatThemeHelpers } = require('../services/chat-theme');
 const sessionSync = require('../services/session-sync');
+const antiDelCall = require('../services/antidelete-anticall');
 
 chalk.level = 3;
 
@@ -679,9 +680,9 @@ async function _startBotInner() {
     const store = await makeInMemoryStore({
         logger: pino().child({ level: 'silent', stream: 'store' })
     });
-    const sentMessageCache = new NodeCache({ stdTTL: 21600, checkperiod: 300, maxKeys: 3000, useClones: false });
+    const sentMessageCache = new NodeCache({ stdTTL: 3600, checkperiod: 180, maxKeys: 800, useClones: false });
     const msgRetryCounterCache = new NodeCache({ stdTTL: 1800, checkperiod: 180, useClones: false });
-    const userDevicesCache = new NodeCache({ stdTTL: 600, checkperiod: 120, useClones: false });
+    const userDevicesCache = new NodeCache({ stdTTL: 600, checkperiod: 120, maxKeys: 1500, useClones: false });
     const { version } = await fetchLatestBaileysVersion();
 
     const sock = makeWASocket({
@@ -691,6 +692,11 @@ async function _startBotInner() {
         auth: state,
         browser: ['Ubuntu', 'Chrome', '22.04.2'],
         generateHighQualityLinkPreview: false,
+        markOnlineOnConnect: false,
+        syncFullHistory: false,
+        fireInitQueries: true,
+        retryRequestDelayMs: 350,
+        maxMsgRetryCount: 4,
         msgRetryCounterCache,
         userDevicesCache,
         getMessage: async (key) => {
@@ -715,8 +721,8 @@ async function _startBotInner() {
             } catch (_) {}
             return undefined;
         },
-        connectTimeoutMs: 120000,
-        keepAliveIntervalMs: 25000,
+        connectTimeoutMs: 90000,
+        keepAliveIntervalMs: 20000,
         defaultQueryTimeoutMs: 60000
     });
     attachChatThemeHelpers(sock);
@@ -869,11 +875,13 @@ async function _startBotInner() {
                 reconnecting = true;
                 reconnectAttempts++;
                 const cappedAttempt = Math.min(reconnectAttempts, MAX_RECONNECT_ATTEMPTS);
+                const jitter = Math.floor(Math.random() * 1200);
                 const waitMs = statusCode === 515
-                    ? 1500
+                    ? 1200
                     : (statusCode === 429 || /rate/i.test(errMsg)
-                        ? Math.min(15000 * cappedAttempt, 60000)
-                        : Math.min(3500 * Math.pow(1.4, cappedAttempt), 45000));
+                        ? Math.min(15000 * cappedAttempt, 60000) + jitter
+                        : Math.min(3000 * Math.pow(1.35, cappedAttempt), 35000) + jitter);
+                try { sock.ev.removeAllListeners(); sock.ws?.close(); } catch (_) {}
                 console.log(
                     chalk.hex('#94A3B8')(
                         `[Reconnect] Menyambung ulang (#${reconnectAttempts}) dalam ${(waitMs / 1000).toFixed(1)}s (session aman)...`
@@ -948,20 +956,73 @@ async function _startBotInner() {
     });
 
     await store.bind(sock.ev);
-    // Prune store.messages setiap 10 menit agar RAM tidak membengkak & GC tetap ringan
+    // Optimasi RAM: Prune store.messages, cache relay, & file tmp setiap 5 menit agar RAM tetap hemat & stabil 24/7
     if (global._mainStorePruneTimer) clearInterval(global._mainStorePruneTimer);
     global._mainStorePruneTimer = setInterval(() => {
         try {
-            if (!store?.messages) return;
-            for (const jid of Object.keys(store.messages)) {
-                const dict = store.messages[jid];
-                if (dict?.array && dict.array.length > 150) {
-                    dict.array.splice(0, dict.array.length - 150);
+            if (store?.messages) {
+                const jids = Object.keys(store.messages);
+                if (jids.length > 220) {
+                    for (const oldJid of jids.slice(0, jids.length - 220)) {
+                        delete store.messages[oldJid];
+                    }
+                }
+                for (const jid of Object.keys(store.messages)) {
+                    const dict = store.messages[jid];
+                    if (dict?.array && dict.array.length > 50) {
+                        const removed = dict.array.splice(0, dict.array.length - 50);
+                        if (dict.dict) {
+                            for (const rm of removed) {
+                                if (rm?.key?.id) delete dict.dict[rm.key.id];
+                            }
+                        }
+                    }
                 }
             }
+            if (global._baileysSentCache instanceof Map && global._baileysSentCache.size > 600) {
+                const drop = global._baileysSentCache.size - 600;
+                let i = 0;
+                for (const k of global._baileysSentCache.keys()) {
+                    if (i++ >= drop) break;
+                    global._baileysSentCache.delete(k);
+                }
+            }
+            const tmpDir = path.join(process.cwd(), 'tmp');
+            if (fs.existsSync(tmpDir)) {
+                const now = Date.now();
+                for (const f of fs.readdirSync(tmpDir)) {
+                    const fp = path.join(tmpDir, f);
+                    try {
+                        const st = fs.statSync(fp);
+                        if (now - st.mtimeMs > 15 * 60 * 1000) {
+                            fs.rmSync(fp, { recursive: true, force: true });
+                        }
+                    } catch (_) {}
+                }
+            }
+            if (typeof global.gc === 'function') global.gc();
         } catch (_) {}
-    }, 10 * 60 * 1000);
+    }, 5 * 60 * 1000);
     if (typeof global._mainStorePruneTimer.unref === 'function') global._mainStorePruneTimer.unref();
+
+    // Watchdog koneksi WebSocket + AutoBio (setiap 45 detik)
+    if (global._wsKeepAliveTimer) clearInterval(global._wsKeepAliveTimer);
+    global._wsKeepAliveTimer = setInterval(() => {
+        try {
+            const curSock = global.socket;
+            if (curSock?.ws && typeof curSock.ws.ping === 'function' && curSock.ws.readyState === 1) {
+                curSock.ws.ping();
+            }
+            if (curSock?.user && global.db?.settings?.autobio === true && typeof curSock.updateProfileStatus === 'function') {
+                const upSec = Math.floor(process.uptime());
+                const h = Math.floor(upSec / 3600);
+                const m = Math.floor((upSec % 3600) / 60);
+                const bio = `${global.botname || 'HuTao - MD'} v${global.versi || '1.5'} • Aktif ${h}j ${m}m`;
+                curSock.updateProfileStatus(bio).catch(() => {});
+            }
+        } catch (_) {}
+    }, 45 * 1000);
+    if (typeof global._wsKeepAliveTimer.unref === 'function') global._wsKeepAliveTimer.unref();
 
     await Solving(sock, store);
     global.socket = sock;
@@ -974,6 +1035,14 @@ async function _startBotInner() {
         } catch (err) {
             console.error(chalk.red('[Messages Upsert Error]'), err);
         }
+    });
+
+    sock.ev.on('messages.update', (updates) => {
+        antiDelCall.handleMessagesUpdateForAntiDelete(sock, updates).catch(() => {});
+    });
+
+    sock.ev.on('call', (calls) => {
+        antiDelCall.handleIncomingCalls(sock, calls).catch(() => {});
     });
 
     sock.ev.on('group-participants.update', (anu) => handleGroupParticipantsUpdate(sock, anu));

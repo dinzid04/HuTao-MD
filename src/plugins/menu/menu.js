@@ -92,6 +92,8 @@ module.exports = {
                 await menureply(global.menuchannel);
             } else if (sub === 'roleplay' || sub === 'rp') {
                 await menureply(global.menuroleplay);
+            } else if (sub === 'vercel' || sub === 'deploy' || sub === 'vdeploy') {
+                await menureply(global.menuvercel);
             } else if (sub === 'all' || sub === 'allmenu' || sub === 'semua') {
                 await menureply(global.allmenu, { isAllMenu: true });
                 await sendMenuAudio();

@@ -46,6 +46,20 @@ module.exports = {
                 { name: 'Sistem Sewa Grup', val: sewaOn, toggleCmd: `${pfx}sistemsewa ${sewaOn ? 'off' : 'on'}` },
                 { name: 'Auto Backup DB', val: backupCfg.enabled === true, custom: backupCfg.enabled ? `🟢 ON (${backupCfg.intervalLabel || '6 jam'})` : '🔴 OFF', toggleCmd: `${pfx}autobackup ${backupCfg.enabled ? 'off' : 'on'}` },
                 { name: 'Notif Update SC GitHub', val: settings.notifUpdate === true, toggleCmd: `${pfx}notifupdate ${settings.notifUpdate === true ? 'off' : 'on'}` },
+                { name: 'Anti Delete Pesan', val: settings.antidelete === true, toggleCmd: `${pfx}antidelete ${settings.antidelete === true ? 'off' : 'on'}` },
+                {
+                    name: 'Anti Call (Suara & Video)',
+                    val: Boolean(settings.anticall && settings.anticall !== 'off'),
+                    custom: settings.anticall === 'block' ? '🟢 ON (Tolak + Blokir)' : (settings.anticall ? '🟢 ON (Tolak Otomatis)' : '🔴 OFF'),
+                    toggleCmd: `${pfx}anticall ${settings.anticall ? 'off' : 'on'}`
+                },
+                { name: 'Auto Bio Uptime', val: settings.autobio === true, toggleCmd: `${pfx}autobio ${settings.autobio === true ? 'off' : 'on'}` },
+                {
+                    name: 'Auto React SW',
+                    val: Boolean(settings.autoreactsw),
+                    custom: settings.autoreactsw ? `🟢 ON (${typeof settings.autoreactsw === 'string' ? settings.autoreactsw : '❤️'})` : '🔴 OFF',
+                    toggleCmd: `${pfx}autoreactsw ${settings.autoreactsw ? 'off' : 'on'}`
+                },
                 (() => {
                     const cr = customReactSvc.getConfig(Dinz);
                     const ruleCnt = Object.keys(cr.rules || {}).length;

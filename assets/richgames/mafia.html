@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Mafia Live</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{background:transparent;font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#e6e1d0;-webkit-font-smoothing:antialiased}
+.app{max-width:380px;margin:10px auto;border:1px solid #2a2f45;border-radius:14px;padding:12px;background:#10131f;transition:background .6s}
+.app.day{background:#2b2a24;border-color:#4a4636}
+.hd{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px}
+.hd b{font:700 21px Georgia,serif}.hd span{font-size:12px;color:#9aa0b8}
+svg{display:block;width:100%;height:auto}
+.seat{cursor:default}.seat.sel{cursor:pointer}
+.ring{fill:none;stroke:#e6e1d0;stroke-width:1.5;stroke-dasharray:3 3;animation:sp 4s linear infinite;transform-origin:center;transform-box:fill-box}
+@keyframes sp{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){.ring{animation:none}}
+#panel{background:#181c2e;border:1px solid #2a2f45;border-radius:10px;padding:11px;margin-top:6px;font-size:13px;line-height:1.45}
+.day #panel{background:#34322a;border-color:#4a4636}
+#panel b{color:#e8b4a8}
+#acts{display:flex;gap:8px;margin-top:9px;flex-wrap:wrap}
+button{font-family:inherit;font-weight:700;font-size:13px;border:0;border-radius:8px;padding:10px 15px;background:#b3262e;color:#fff;cursor:pointer}
+button.alt{background:#2b3150;color:#e6e1d0}
+#log{margin-top:8px;max-height:132px;overflow-y:auto;font-size:12px;line-height:1.45;color:#a7adc4;padding-right:4px}
+#log p{padding:3px 0;border-top:1px solid #ffffff10}#log p.me{color:#e8b4a8}
+.cr{margin-top:12px;text-align:center;font-size:10.5px;color:#6f7691}
+</style></head><body>
+<div class="app" id="app">
+ <div class="hd"><b>Mafia</b><span id="info"></span></div>
+ <svg id="tb" viewBox="0 0 300 250"></svg>
+ <div id="panel"><div id="txt"></div><div id="acts"></div></div>
+ <div id="log"></div>
+ <div class="cr">Create By DinzID</div>
+</div>
+<script>
+const $=s=>document.getElementById(s),rnd=a=>a[Math.floor(Math.random()*a.length)];
+const NM=['Kamu','Raka','Dinda','Bagas','Sari','Fajar','Laras'],RN={m:'Mafia',d:'Detektif',s:'Dokter',w:'Warga'};
+const SK=['#e2b38f','#c98e6b','#f0c8a4','#a8734f','#d9a07c','#e8bb99','#b9835f'],HR=['#2b211c','#5a3a22','#1d1a2a','#7a4b2a','#2f2a24','#4a2c2c','#1f2b2e'],BG=['#3b4a7a','#6a3f52','#3d6a5e','#6b5b3a','#4f3d78','#7a4a3a','#35607a'];
+let G;
+function init(){
+  const r=['m','m','d','s','w','w','w'].sort(()=>Math.random()-.5);
+  G={r,al:r.map(()=>true),ph:'role',day:1,log:[],hint:-1,sus:{},over:false,sel:null,seen:[]};
+  add(`Ada 7 pemain: 2 Mafia, 1 Detektif, 1 Dokter, 3 Warga.`);
+  draw();
+}
+const alive=()=>G.al.map((a,i)=>a?i:-1).filter(i=>i>=0);
+function add(t,me){G.log.unshift([t,me]);}
+function wr(c,w){let t=w.reduce((a,b)=>a+b,0),x=Math.random()*t;for(let i=0;i<c.length;i++){x-=w[i];if(x<=0)return c[i]}return c[c.length-1]}
+function avatar(i,x,y){
+  const dead=!G.al[i],show=dead||G.over||i==0;
+  const sel=G.sel&&G.sel.includes(i);
+  return`<g class="seat ${sel?'sel':''}" ${sel?`onclick="choose(${i})"`:''} opacity="${dead?.4:1}">
+  ${sel?`<circle class="ring" cx="${x}" cy="${y}" r="26"/>`:''}
+  <circle cx="${x}" cy="${y}" r="21" fill="${BG[i]}"/>
+  <path d="M${x-15} ${y+19}Q${x-14} ${y+6} ${x} ${y+6}Q${x+14} ${y+6} ${x+15} ${y+19}Z" fill="#1c1f30"/>
+  <circle cx="${x}" cy="${y-3}" r="8.5" fill="${SK[i]}"/><path d="M${x-9} ${y-4}Q${x-8} ${y-13} ${x} ${y-13}Q${x+8} ${y-13} ${x+9} ${y-4}Q${x} ${y-8} ${x-9} ${y-4}Z" fill="${HR[i]}"/>
+  ${i==0?`<circle cx="${x}" cy="${y}" r="23.5" fill="none" stroke="#e8b4a8" stroke-width="1.4"/>`:''}
+  ${dead?`<path d="M${x-10} ${y-10}L${x+10} ${y+10}M${x+10} ${y-10}L${x-10} ${y+10}" stroke="#b3262e" stroke-width="3"/>`:''}
+  <text x="${x}" y="${y+36}" font-size="9.5" text-anchor="middle" fill="#e6e1d0">${NM[i]}</text>
+  ${show?`<text x="${x}" y="${y+46}" font-size="8" text-anchor="middle" fill="${G.r[i]=='m'?'#e0777e':'#9aa0b8'}">${RN[G.r[i]]}</text>`:''}</g>`;
+}
+function draw(){
+  const night=G.ph=='night'||G.ph=='role';
+  $('app').className='app'+(night?'':' day');
+  let s=`<ellipse cx="150" cy="118" rx="100" ry="72" fill="${night?'#161a2b':'#3a382d'}" stroke="${night?'#2a2f45':'#555039'}"/>`;
+  s+=night?`<circle cx="150" cy="118" r="16" fill="#e6e1d0"/><circle cx="157" cy="113" r="14" fill="#161a2b"/>`:`<circle cx="150" cy="118" r="9" fill="#e2b940"/>`+[0,1,2,3,4,5,6,7].map(k=>{const a=k*Math.PI/4;return`<path d="M${150+14*Math.cos(a)} ${118+14*Math.sin(a)}L${150+19*Math.cos(a)} ${118+19*Math.sin(a)}" stroke="#e2b940" stroke-width="2"/>`}).join('');
+  for(let i=0;i<7;i++){const a=Math.PI/2+i*2*Math.PI/7;s+=avatar(i,150+112*Math.cos(a),108+78*Math.sin(a))}
+  $('tb').innerHTML=s;
+  $('info').textContent=G.ph=='role'?'Pembagian peran':`${night?'Malam':'Siang'} ke-${G.day} | hidup ${alive().length}`;
+  $('log').innerHTML=G.log.slice(0,14).map(([t,m])=>`<p class="${m?'me':''}">${t}</p>`).join('');
+  panel();
+}
+function panel(){
+  const me=G.r[0],T=$('txt'),A=$('acts');A.innerHTML='';G.sel=null;
+  const btn=(t,f,alt)=>A.innerHTML+=`<button class="${alt?'alt':''}" onclick="${f}">${t}</button>`;
+  if(G.over){T.innerHTML=G.over;btn('Main lagi','init()');return}
+  if(G.ph=='role'){
+    const d={m:'Kamu <b>Mafia</b>. Tiap malam pilih satu warga untuk dihabisi.',d:'Kamu <b>Detektif</b>. Tiap malam selidiki satu orang.',s:'Kamu <b>Dokter</b>. Tiap malam lindungi satu orang.',w:'Kamu <b>Warga</b>. Cari mafia lewat diskusi dan voting.'}[me];
+    T.innerHTML=d+(me=='m'?` Rekanmu: <b>${NM[G.r.findIndex((x,i)=>x=='m'&&i)]}</b>.`:'');
+    btn('Mulai malam pertama','G.ph="night";draw()');return;
+  }
+  if(G.ph=='night'){
+    if(!G.al[0]||me=='w'){T.innerHTML=G.al[0]?'Kamu tidur. Malam ini warga hanya bisa menunggu.':'Kamu sudah tersingkir. Lihat saja kelanjutannya.';btn('Lanjut','night(-1)');return}
+    const c=alive().filter(i=>me=='m'?G.r[i]!='m':me=='d'?i!=0:true);
+    G.sel=c;T.innerHTML={m:'Tap orang yang mau dihabisi malam ini.',d:'Tap orang yang mau diselidiki.',s:'Tap orang yang mau dilindungi (boleh dirimu sendiri).'}[me];
+    $('tb').innerHTML='';draw2();return;
+  }
+  if(G.ph=='day'){
+    if(!G.al[0]){T.innerHTML='Kamu sudah tersingkir. Voting berjalan tanpamu.';btn('Lanjut','vote(-1)');return}
+    G.sel=alive().filter(i=>i!=0);T.innerHTML='Siang hari. Tap orang yang mau kamu vote untuk diusir, atau abstain.';btn('Abstain','vote(-2)','alt');
+  }
+  if(G.sel)draw2();
+}
+function draw2(){ // redraw seats with selectable rings, keep panel text
+  const t=$('txt').innerHTML,a=$('acts').innerHTML,night=G.ph=='night';
+  let s=`<ellipse cx="150" cy="118" rx="100" ry="72" fill="${night?'#161a2b':'#3a382d'}" stroke="${night?'#2a2f45':'#555039'}"/>`;
+  s+=night?`<circle cx="150" cy="118" r="16" fill="#e6e1d0"/><circle cx="157" cy="113" r="14" fill="#161a2b"/>`:`<circle cx="150" cy="118" r="9" fill="#e2b940"/>`;
+  for(let i=0;i<7;i++){const a=Math.PI/2+i*2*Math.PI/7;s+=avatar(i,150+112*Math.cos(a),108+78*Math.sin(a))}
+  $('tb').innerHTML=s;
+}
+function choose(i){G.ph=='night'?night(i):vote(i)}
+function night(my){
+  const me=G.r[0],al=alive();
+  const mafs=al.filter(i=>G.r[i]=='m');
+  let kill=me=='m'&&G.al[0]&&my>=0?my:rnd(al.filter(i=>G.r[i]!='m'));
+  let save=-1;
+  if(G.al[G.r.indexOf('s')])save=G.r.indexOf('s')==0&&my>=0?my:rnd(al);
+  const di=G.r.indexOf('d');
+  if(G.al[di]){
+    if(di==0&&my>=0){const m=G.r[my]=='m';add(`Hasil penyelidikan: ${NM[my]} ${m?'<b>adalah Mafia</b>':'bukan Mafia'}.`,1)}
+    else if(di){const c=al.filter(i=>i!=di&&!G.seen.includes(i));const t=rnd(c.length?c:al.filter(i=>i!=di));G.seen.push(t);if(G.r[t]=='m')G.hint=t}
+  }
+  if(kill==save)add(`Pagi hari ${G.day}: malam ini tidak ada korban.`);
+  else{G.al[kill]=false;add(`Pagi hari ${G.day}: <b>${NM[kill]}</b> ditemukan tewas. Perannya: ${RN[G.r[kill]]}.`)}
+  if(win())return;
+  talk();G.ph='day';draw();
+}
+function target(i){
+  const c=alive().filter(j=>j!=i),w=c.map(j=>{
+    let x=1+Math.random()*2+(G.sus[j]||0)*.6;
+    if(G.r[i]=='m'){if(G.r[j]=='m')x=0;else if(G.r[j]=='d'||G.r[j]=='s')x+=1.2}
+    else{if(G.hint==j&&G.r[i]!='m')x+=40;if(G.r[j]=='m')x+=.7}
+    if(j==0)x+=.3;return x});
+  return wr(c,w);
+}
+const LN=['curiga sama','merasa ada yang janggal dari','mau vote','yakin harus mengusir'];
+function talk(){
+  G.say={};
+  alive().filter(i=>i).forEach(i=>{
+    const t=target(i);G.say[i]=t;G.sus[t]=(G.sus[t]||0)+1;
+    const di=G.r.indexOf('d');
+    add(i==di&&G.hint==t?`${NM[i]}: Aku punya firasat kuat, ${NM[t]} itu mafia.`:`${NM[i]}: Aku ${rnd(LN)} ${NM[t]}.`);
+  });
+}
+function vote(my){
+  if(my==-1)my=-2;
+  const v={};let top=-1,cnt=0;
+  const cast=(a,b)=>{v[b]=(v[b]||0)+1};
+  alive().forEach(i=>{if(i==0){if(my>=0){cast(0,my);add(`Kamu memilih ${NM[my]}.`,1)}return}
+    let t=G.say[i];if(!G.al[t]||Math.random()<.18)t=target(i);if(G.r[i]=='m'&&G.r[t]=='m')t=target(i);cast(i,t)});
+  const e=Object.entries(v).sort((a,b)=>b[1]-a[1]);
+  add(`Hasil voting: ${e.map(([k,n])=>`${NM[k]} (${n})`).join(', ')||'tidak ada suara'}.`);
+  if(e.length&&(e.length==1||e[0][1]>e[1][1])){const k=+e[0][0];G.al[k]=false;add(`<b>${NM[k]}</b> diusir warga. Perannya: ${RN[G.r[k]]}.`)}
+  else add('Suara seri, tidak ada yang diusir.');
+  if(win())return;
+  G.day++;G.ph='night';draw();
+}
+function win(){
+  const m=alive().filter(i=>G.r[i]=='m').length,o=alive().length-m;
+  if(!m)G.over=`<b>Warga menang.</b> Semua mafia sudah diusir. ${G.r[0]=='m'?'Kamu kalah.':'Kamu menang.'}`;
+  else if(m>=o)G.over=`<b>Mafia menang.</b> Jumlah mafia sudah menyamai warga. ${G.r[0]=='m'?'Kamu menang.':'Kamu kalah.'}`;
+  if(G.over){add(G.over.replace(/<\/?b>/g,''));draw();return true}return false;
+}
+init();
+</script></body></html>

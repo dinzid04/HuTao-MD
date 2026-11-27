@@ -22,7 +22,9 @@ module.exports = {
 
             if (sub === 'on' || sub === 'aktif' || sub === '1') {
                 rootDb.settings.notifUpdate = true;
-                ctx.botCtx.saveRootDb();
+                rootDb.settings._updatedAt = Date.now();
+                if (typeof ctx.botCtx.saveSettingsNow === 'function') await ctx.botCtx.saveSettingsNow().catch(() => ctx.botCtx.saveRootDb());
+                else ctx.botCtx.saveRootDb();
                 // Catat baseline SHA saat ini jika belum tercatat
                 try {
                     const st = updater.getUpdateState();
@@ -46,7 +48,9 @@ module.exports = {
 
             if (sub === 'off' || sub === 'nonaktif' || sub === '0') {
                 rootDb.settings.notifUpdate = false;
-                ctx.botCtx.saveRootDb();
+                rootDb.settings._updatedAt = Date.now();
+                if (typeof ctx.botCtx.saveSettingsNow === 'function') await ctx.botCtx.saveSettingsNow().catch(() => ctx.botCtx.saveRootDb());
+                else ctx.botCtx.saveRootDb();
                 return Reply(
                     `\`🔕 NOTIF UPDATE SC\`\n` +
                     `> ◦ *Status :* 🔴 NONAKTIF (Manual)\n` +
@@ -129,7 +133,13 @@ module.exports = {
                 return Reply(updater.formatUpdateCaption(res.info, { mode: 'check', usedPrefix: pfx }));
             }
 
-            try { await database.write(global.db, true); } catch (_) {}
+            try {
+                if (typeof ctx.botCtx?.flushStorage === 'function') {
+                    await ctx.botCtx.flushStorage(true);
+                } else {
+                    await database.write(global.db, true);
+                }
+            } catch (_) {}
             const doneCaption = updater.formatUpdateCaption(res.info, { mode: 'done', result: res, usedPrefix: pfx });
             await Dinz.sendMessage(m.chat, { react: { text: '✅', key: m.key } }).catch(() => {});
             await Reply(doneCaption);

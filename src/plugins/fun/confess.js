@@ -3,7 +3,7 @@ const { formatCard } = require('./_helper');
 module.exports = {
     name: 'confess',
     category: 'fun',
-    commands: ['confess', 'menfess'],
+    commands: ['confess'],
 
     async execute(ctx) {
         const { Dinz, m, text, body, Reply, botCtx, usedPrefix } = ctx;

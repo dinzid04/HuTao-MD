@@ -66,7 +66,18 @@ module.exports = {
 
         if (!global.db.settings) global.db.settings = {};
         global.db.settings.menuStyle = resolvedId;
-        botCtx.saveRootDb();
+        global.db.settings._updatedAt = Date.now();
+        // Pastikan juga tertulis ke root settings jika dipanggil oleh Owner Utama lalu flush langsung ke Disk + MongoDB!
+        const rootDb = botCtx.getRootDb ? botCtx.getRootDb() : null;
+        if (!Dinz?.isJadibot && rootDb?.settings) {
+            rootDb.settings.menuStyle = resolvedId;
+            rootDb.settings._updatedAt = Date.now();
+        }
+        if (typeof botCtx.saveSettingsNow === 'function') {
+            await botCtx.saveSettingsNow().catch(() => botCtx.saveRootDb());
+        } else {
+            botCtx.saveRootDb();
+        }
 
         const nextInfo = menuRenderer.getStyleInfo(resolvedId);
         await Dinz.sendMessage(m.chat, { react: { text: '🎨', key: m.key } }).catch(() => {});

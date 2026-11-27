@@ -45,6 +45,7 @@ const prefixMgr = require('../core/prefix');
 const menuRenderer = require('../services/menu-renderer');
 const customReactSvc = require('../services/custom-react');
 const elsyaaGames = require('../plugins/game/elsyaa-games');
+const groupExtra = require('../plugins/group/group-extra');
 const { toBoldSans, toSmallCaps, toMono } = require('../utils/formatter');
 const loadOwners = (Dinz) => {
     try {
@@ -319,6 +320,19 @@ const handler = async (Dinz, m, chatUpdate, store) => {
         let args = parsedCmd.args;
         const usedPrefix = parsedCmd.usedPrefix || prefixMgr.getDisplayPrefix(global.db?.settings);
 
+        if (!isCmd && m.type === 'stickerMessage' && !m.isBaileys) {
+            const mappedStickerCmd = groupExtra.resolveIncomingStickerCommand(Dinz, m, botCtx);
+            if (mappedStickerCmd) {
+                const parts = String(mappedStickerCmd).trim().split(/\s+/);
+                const candidate = (parts[0] || '').toLowerCase();
+                if (validCommandsSet.has(candidate)) {
+                    isCmd = true;
+                    command = candidate;
+                    args = parts.slice(1);
+                }
+            }
+        }
+
 		const mainOwnersList = (() => {
 			try {
 				const extra = botCtx.getMainSection('owner');
@@ -355,6 +369,15 @@ const handler = async (Dinz, m, chatUpdate, store) => {
 		}
 
 		if (isCmd && command) {
+			if (!isCreator) {
+				const bannedUsers = botCtx.getRootDb()?.settings?.bannedUsers;
+				if (Array.isArray(bannedUsers) && (bannedUsers.includes(m.sender) || (senderNumber && bannedUsers.includes(`${senderNumber}@s.whatsapp.net`)))) {
+					return;
+				}
+				if (groupExtra.isGroupSelfMuted(m, isCreator)) {
+					return;
+				}
+			}
 			const disabledCmds = botCtx.getRootDb()?.settings?.disabledCommands;
 			if (Array.isArray(disabledCmds) && disabledCmds.includes(String(command).toLowerCase())) {
 				return Reply(`⛔ *Fitur Dinonaktifkan*\n> ◦ Command *${command}* sedang dinonaktifkan sementara oleh Owner.`);
@@ -410,6 +433,8 @@ const handler = async (Dinz, m, chatUpdate, store) => {
         }
 
         if (!isCmd && m.isGroup && body && typeof body === 'string' && body.trim().length > 0 && !m.isBaileys) {
+          const autoReplied = await groupExtra.handleGroupAutoReply(Dinz, m, body, botCtx);
+          if (autoReplied) return;
           const chatId = m.chat;
           let listDb = loadLists();
           let listGrup = listDb[chatId] || [];

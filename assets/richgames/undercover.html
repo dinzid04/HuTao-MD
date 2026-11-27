@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Undercover Live</title>
+<style>
+:root{--bg:#0f1115;--card:#181b22;--card2:#20242d;--ink:#fff;--soft:#a3aab8;--line:#2b303b;--acc:#22c55e;--red:#ef4444;--warn:#f59e0b;--blue:#60a5fa;--sys:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{background:transparent;color:var(--ink);font-family:var(--sys);min-height:100vh;overflow-x:hidden;-webkit-font-smoothing:antialiased}
+.stage{display:flex;justify-content:center;padding:14px 10px}
+.app{width:100%;max-width:380px;border-radius:16px;overflow:hidden;background:linear-gradient(180deg,#232733 0%,#171a21 30%,var(--bg) 70%);box-shadow:0 18px 40px rgba(0,0,0,.55);padding:14px 12px 12px}
+.top{display:flex;align-items:center;gap:9px;margin-bottom:12px}
+.logo{width:32px;height:32px;border-radius:9px;background:#312e81;flex:none;display:flex;align-items:center;justify-content:center}
+.meta{flex:1;min-width:0}.title{font-size:14px;font-weight:800}.sub{font-size:10.5px;color:var(--soft);margin-top:2px}
+.chips{display:flex;gap:6px;margin-bottom:10px}
+.chip{flex:1;border:1px solid var(--line);background:var(--card);color:var(--soft);border-radius:20px;padding:6px 0;font-size:12px;font-weight:700;cursor:pointer}
+.chip.on{background:var(--acc);border-color:var(--acc);color:#04130a}
+.word{display:flex;align-items:center;gap:10px;background:linear-gradient(135deg,#2a2f6b,#1f2347);border:1px solid #3d4390;border-radius:14px;padding:10px 12px;margin-bottom:10px;cursor:pointer}
+.word .k{font-size:10px;font-weight:800;color:#a5b0ff;letter-spacing:.6px}
+.word .v{font-size:20px;font-weight:800;margin-top:1px;transition:filter .2s}
+.word .v.bl{filter:blur(8px)}
+.word svg{margin-left:auto;flex:none}
+.ban{font-size:12px;font-weight:800;text-align:center;margin-bottom:8px;color:var(--soft)}
+.ban b{color:var(--ink)}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px}
+.tile{position:relative;background:var(--card);border:1.5px solid var(--line);border-radius:12px;padding:8px 4px 6px;text-align:center;transition:.2s;min-width:0}
+.tile.sp{border-color:var(--acc);box-shadow:0 0 0 3px rgba(34,197,94,.14)}
+.tile.pk{cursor:pointer;border-color:#4b5563}
+.tile.sel{border-color:var(--red);box-shadow:0 0 0 3px rgba(239,68,68,.2)}
+.tile .av{width:44px;height:44px;display:block;margin:0 auto 3px}
+.tile .n{font-size:11px;font-weight:800}
+.tile .bb{margin:5px 3px 0;min-height:34px;background:#242936;border-radius:9px;padding:4px 4px;font-size:11px;font-weight:700;line-height:1.2;display:flex;flex-direction:column;justify-content:center;word-break:break-word}
+.tile .bb small{font-size:9px;color:var(--soft);font-weight:600}
+.tile .bb.em{color:#6b7280;font-weight:600}
+.tile.dead{opacity:.55}.tile.dead .av{filter:grayscale(1)}
+.tile .ov{position:absolute;top:6px;left:6px;right:6px;display:none}
+.tile.dead .ov{display:block}
+.tag{display:inline-block;font-size:9px;font-weight:900;letter-spacing:.4px;border-radius:6px;padding:2px 6px;color:#fff}
+.tag.u{background:var(--red)}.tag.c{background:#15803d}.tag.x{background:#374151}
+.vc{position:absolute;top:-6px;right:-4px;min-width:20px;height:20px;border-radius:10px;background:var(--red);color:#fff;font-size:11px;font-weight:900;display:flex;align-items:center;justify-content:center;padding:0 5px;border:2px solid #171a21}
+.msg{min-height:36px;display:flex;align-items:center;justify-content:center;text-align:center;font-size:12.5px;font-weight:700;color:var(--soft);padding:0 6px 8px;line-height:1.35}
+.msg.win{color:var(--acc)}.msg.lose{color:var(--red)}
+.row{display:flex;gap:8px}
+.inp{flex:1;min-width:0;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px;color:var(--ink);font-size:14px;outline:none;font-family:var(--sys)}
+.inp:focus{border-color:var(--acc)}
+.btn{flex:none;border:0;border-radius:10px;padding:10px 14px;font-size:13px;font-weight:800;cursor:pointer;background:var(--acc);color:#04130a}
+.btn.full{flex:1}.btn.alt{background:var(--card2);color:var(--ink);border:1px solid var(--line)}
+.btn.red{background:var(--red);color:#fff}.btn[disabled]{opacity:.4}
+.rv{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:10px;font-size:12px;line-height:1.5;color:var(--soft)}
+.rv b{color:var(--ink)}
+.stat{display:flex;justify-content:center;gap:14px;margin-top:10px;font-size:11px;color:var(--soft)}.stat b{color:var(--ink)}
+.cr{text-align:center;margin-top:10px;font-size:10px;color:#6b7280;letter-spacing:.3px}.cr b{color:#9aa3b2}
+.hide{display:none!important}
+</style></head><body>
+<div class="stage"><div class="app">
+  <div class="top">
+    <div class="logo"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#c7d2fe" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12s3.6-6.5 9-6.5S21 12 21 12s-3.6 6.5-9 6.5S3 12 3 12z"/><circle cx="12" cy="12" r="2.8" fill="#c7d2fe"/></svg></div>
+    <div class="meta"><div class="title">Undercover Live</div><div class="sub" id="sub">Temukan pemain yang katanya beda</div></div>
+  </div>
+  <div class="chips" id="np"><button class="chip" data-n="5">5 Pemain</button><button class="chip on" data-n="6">6 Pemain</button><button class="chip" data-n="8">8 Pemain</button></div>
+  <div class="word" id="wd"><div><div class="k">KATA RAHASIAMU • KETUK UNTUK LIHAT</div><div class="v bl" id="wv">••••••</div></div>
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#a5b0ff" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12s3.6-6.5 9-6.5S21 12 21 12s-3.6 6.5-9 6.5S3 12 3 12z"/><circle cx="12" cy="12" r="2.8"/></svg></div>
+  <div class="ban" id="ban"></div>
+  <div class="grid" id="gr"></div>
+  <div class="rv hide" id="rv"></div>
+  <div class="msg" id="msg"></div>
+  <div class="row hide" id="hin"><input class="inp" id="hi" maxlength="28" placeholder="Petunjuk 1–3 kata…" autocomplete="off"><button class="btn" id="hs">Kirim</button></div>
+  <div class="row hide" id="vot"><button class="btn red full" id="vs" disabled>Pilih yang dicurigai</button></div>
+  <div class="row hide" id="cnt"><button class="btn full" id="cn">Lanjut</button></div>
+  <div class="row" style="margin-top:8px"><button class="btn alt full" id="rs">Main Ulang</button></div>
+  <div class="stat"><span>Menang <b id="w">0</b></span><span>Kalah <b id="l">0</b></span></div>
+  <div class="cr">Create By <b>DinzID</b></div>
+</div></div>
+<svg width="0" height="0" style="position:absolute"><defs><clipPath id="cav"><circle cx="24" cy="24" r="23"/></clipPath></defs></svg>
+
+<script>
+(function(){
+const $=id=>document.getElementById(id);
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const WD=[
+['Kopi','Teh','pahit,kafein,hitam,ampas','daun,celup,melati,manis'],
+['Bakso','Mie Ayam','bulat,kuah,urat,sapi','kenyal,pangsit,ayam,kecap'],
+['Motor','Sepeda','bensin,helm,knalpot,ngebut','kayuh,rantai,sehat,pedal'],
+['Sepatu','Sandal','tali,kaos kaki,tertutup,sol','jepit,santai,terbuka,karet'],
+['Pantai','Kolam Renang','pasir,ombak,laut,senja','klorin,ubin,dangkal,handuk'],
+['Dokter','Perawat','resep,diagnosa,stetoskop,operasi','infus,seragam,bangsal,suntik'],
+['Guru','Dosen','sekolah,murid,papan tulis,pr','kampus,skripsi,mahasiswa,kuliah'],
+['Nasi Goreng','Mie Goreng','telur,sisa,kerupuk,bumbu','instan,lilit,garpu,pedas'],
+['WhatsApp','Telegram','hijau,centang,status,grup','biru,kanal,pesawat,bot'],
+['Mobil','Bus','setir,pribadi,keluarga,parkir','penumpang,terminal,supir,halte'],
+['Kucing','Harimau','mengeong,bulu,peliharaan,kumis','belang,hutan,buas,taring'],
+['Pisang','Mangga','kuning,monyet,kulit,lonjong','harum manis,biji,pohon,asam'],
+['Hujan','Embun','payung,petir,deras,awan','pagi,daun,dingin,tetes'],
+['Sungai','Danau','mengalir,arus,jembatan,hulu','tenang,luas,perahu,tergenang'],
+['Gitar','Ukulele','senar,petik,akustik,enam','kecil,hawaii,empat,mungil'],
+['Pesawat','Helikopter','bandara,sayap,pramugari,tiket','baling,mendarat,vertikal,berisik'],
+['Sekolah','Kampus','seragam,bel,upacara,kelas','ukt,organisasi,wisuda,mahasiswa'],
+['Susu','Yogurt','sapi,putih,kalsium,botol','asam,probiotik,fermentasi,sendok'],
+['Es Krim','Es Batu','cone,vanila,manis,cokelat','beku,kotak,dingin,minuman'],
+['Kursi','Sofa','kaki,duduk,meja makan,kayu','empuk,ruang tamu,bantal,rebahan'],
+['Handphone','Tablet','telepon,saku,pulsa,sms','layar lebar,stylus,ipad,gambar'],
+['Rendang','Semur','padang,santan,kering,daging','kecap,manis,kentang,jawa'],
+['Batik','Songket','canting,malam,jawa,motif','benang emas,palembang,tenun,mewah'],
+['Gunung','Bukit','puncak,mendaki,tinggi,kawah','landai,rendah,hijau,kecil'],
+['Roti','Kue','tawar,sarapan,selai,panggang','ulang tahun,krim,manis,hias'],
+['Polisi','Satpam','tilang,pistol,lalu lintas,patroli','pos,jaga,kompleks,peluit'],
+['Pizza','Burger','keju,italia,irisan,oven','patty,selada,cepat saji,saus'],
+['Sabun','Shampoo','batang,busa,mandi,wangi','rambut,ketombe,botol,keramas'],
+['Kamera','Cermin','lensa,foto,flash,tripod','pantulan,kaca,rias,wajah'],
+['Bioskop','Teater','film,popcorn,layar,tiket','panggung,drama,aktor,tirai'],
+['Ayam','Bebek','kokok,jengger,kampung,goreng','paruh,selaput,itik,kolam'],
+['Jam Tangan','Gelang','waktu,angka,baterai,tali','emas,perhiasan,pergelangan,manik'],
+['Laptop','Komputer','portabel,baterai,lipat,kafe','monitor,cpu,meja,kabel'],
+['Payung','Jas Hujan','tangkai,buka,lipat,teduh','plastik,motor,ponco,kancing'],
+['Apel','Jeruk','merah,newton,gigit,kulit tipis','kupas,siung,vitamin c,segar']
+].map(a=>({a:a[0],b:a[1],ha:a[2].split(','),hb:a[3].split(',')}));
+const NM=['Rafi','Sinta','Dimas','Nadia','Bayu','Lani','Joko'];
+const BG=['#3b82f6','#ec4899','#f59e0b','#8b5cf6','#14b8a6','#ef4444','#84cc16','#06b6d4'];
+const SK=['#f2d3b3','#e8bb94','#c99370','#8d5a3b','#f5dcc4'];
+const HR=['#2a2018','#4a2f1d','#111','#6b4423','#8a1c1c','#2f2f45'];
+const SH=['#1f2937','#7c3aed','#0f766e','#be123c','#b45309','#1d4ed8','#374151','#047857'];
+
+function avatar(i){
+  const bg=BG[i%8],sk=SK[(i*3+1)%5],hr=HR[(i*5+2)%6],sh=SH[(i*3+5)%8],st=i%4;
+  let back='',front='';
+  if(st===1)back=`<path d="M12.5 22c0-9 5-13 11.5-13s11.5 4 11.5 13v14c0 2-3 3-5 3H17.5c-2 0-5-1-5-3z" fill="${hr}"/>`;
+  if(st===0)front=`<path d="M15.2 20.5c0-6.5 3.6-9.6 8.8-9.6s8.8 3.1 8.8 9.6c-2.2-3.2-5.2-4.2-8.8-4.2s-6.6 1-8.8 4.2z" fill="${hr}"/>`;
+  if(st===1)front=`<path d="M15.5 21c.5-6 3.4-9.4 8.5-9.4s8 3.4 8.5 9.4c-2-3.4-5-5-8.5-5s-6.5 1.6-8.5 5z" fill="${hr}"/>`;
+  if(st===2)front=`<circle cx="24" cy="8.4" r="4.3" fill="${hr}"/><path d="M15.2 20.5c0-6.5 3.6-9.6 8.8-9.6s8.8 3.1 8.8 9.6c-2.2-3.2-5.2-4.2-8.8-4.2s-6.6 1-8.8 4.2z" fill="${hr}"/>`;
+  if(st===3)front=`<path d="M14.8 19.5c0-6.2 4-9.5 9.2-9.5s9.2 3.3 9.2 9.5z" fill="${bg==='#3b82f6'?'#ef4444':'#1d4ed8'}"/><path d="M24 19.5h13.5c0 1.6-2 2.6-5.2 2.6H24z" fill="#0f172a" opacity=".55"/>`;
+  return `<svg class="av" viewBox="0 0 48 48"><g clip-path="url(#cav)"><rect width="48" height="48" fill="${bg}"/><path d="M5 48c1.6-9 8.4-13 19-13s17.4 4 19 13z" fill="${sh}"/>${back}<rect x="20.6" y="27" width="6.8" height="9" rx="2" fill="${sk}"/><ellipse cx="24" cy="22.5" rx="8.6" ry="9.6" fill="${sk}"/>${front}<circle cx="20.6" cy="23.2" r="1.15" fill="#1b1f2a"/><circle cx="27.4" cy="23.2" r="1.15" fill="#1b1f2a"/><path d="M20.9 27.4c1.8 1.6 4.4 1.6 6.2 0" fill="none" stroke="#7a3b2a" stroke-width="1.3" stroke-linecap="round"/></g></svg>`}
+
+/* ---------- state ---------- */
+let P,G,gid=0,np=6,resolver=null,sel=-1,st={w:0,l:0};
+try{st=Object.assign(st,JSON.parse(localStorage.getItem('yt_under')||'{}'))}catch(e){}
+const sv=()=>{try{localStorage.setItem('yt_under',JSON.stringify(st))}catch(e){}};
+const alive=()=>P.filter(p=>p.alive);
+const ask=()=>new Promise(r=>{resolver=r});
+const done=v=>{const r=resolver;resolver=null;if(r)r(v)};
+function msg(t,c){const m=$('msg');m.textContent=t;m.className='msg'+(c?' '+c:'')}
+const shuf=a=>{for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
+
+function init(){
+  gid++;resolver=null;sel=-1;const g=gid;
+  const pr=WD[Math.floor(Math.random()*WD.length)],sw=Math.random()<.5;
+  const civ=sw?{w:pr.b,h:pr.hb}:{w:pr.a,h:pr.ha},und=sw?{w:pr.a,h:pr.ha}:{w:pr.b,h:pr.hb};
+  G={round:0,phase:'',speaker:null,wait:'',civ,und,pair:pr,over:false,used:new Set(),result:''};
+  P=[];for(let i=0;i<np;i++)P.push({n:i?NM[i-1]:'Kamu',bot:i>0,alive:true,under:false,word:'',hs:[],vote:-1,vc:0,out:false});
+  shuf(P.map((_,i)=>i)).slice(0,np>=7?2:1).forEach(i=>{P[i].under=true});
+  P.forEach(p=>{p.word=p.under?und.w:civ.w});
+  $('wv').textContent=P[0].word;$('wv').classList.add('bl');$('sub').textContent=`${np} pemain • ${np>=7?2:1} undercover • beri petunjuk & voting`;
+  $('rv').classList.add('hide');render();play(g)}
+
+/* ---------- tampilan ---------- */
+function render(){
+  const meDead=!P[0].alive,pk=G.wait==='vote'&&!meDead;
+  $('gr').innerHTML=P.map((p,i)=>{
+    const last=p.hs.length?p.hs[p.hs.length-1]:'',prev=p.hs.slice(0,-1).join(' · ');
+    const can=pk&&p.alive&&i!==0;
+    const tg=G.over||!p.alive?(p.under?'<span class="tag u">UNDERCOVER</span>':'<span class="tag c">WARGA</span>'):'';
+    return `<div class="tile${G.speaker===p?' sp':''}${can?' pk':''}${sel===i?' sel':''}${!p.alive?' dead':''}" data-i="${i}">${p.vc?`<div class="vc">${p.vc}</div>`:''}${avatar(i)}<div class="n">${p.n}</div><div class="bb${last?'':' em'}">${last?`<span>${esc(last)}</span>${prev?`<small>${esc(prev)}</small>`:''}`:(G.speaker===p?'berpikir…':'—')}</div><div style="margin-top:5px;min-height:14px">${tg}</div></div>`}).join('');
+  const ph=G.phase;
+  $('ban').innerHTML=G.over?'<b>Permainan selesai</b>':ph==='hint'?`Ronde <b>${G.round}</b> • Petunjuk${G.speaker?' — giliran <b>'+G.speaker.n+'</b>':''}`:ph==='vote'?`Ronde <b>${G.round}</b> • <b>Voting</b>`:ph==='res'?`Ronde <b>${G.round}</b> • Hasil voting`:'';
+  $('hin').classList.toggle('hide',G.wait!=='hint');
+  $('vot').classList.toggle('hide',G.wait!=='vote'||meDead);
+  $('cnt').classList.toggle('hide',G.wait!=='cont'||meDead);
+  $('vs').disabled=sel<0;$('vs').textContent=sel<0?'Pilih yang dicurigai':`Vote ${P[sel].n}`;
+  $('w').textContent=st.w;$('l').textContent=st.l}
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+/* ---------- bot ---------- */
+function botHint(p){
+  const h=(p.under?G.und:G.civ).h,pool=h.filter(x=>!G.used.has(x));const l=pool.length?pool:h;
+  const x=l[Math.floor(Math.random()*l.length)];G.used.add(x);return x}
+function botVote(p){
+  const mine=(p.under?G.und:G.civ).h,oth=(p.under?G.civ:G.und).h;let best=-1,bs=-1e9;
+  P.forEach((q,j)=>{if(!q.alive||q===p)return;let s=Math.random()*.7;
+    q.hs.forEach(h=>{const t=h.toLowerCase();if(mine.some(x=>t===x||t.includes(x)))s-=1;else if(oth.some(x=>t===x||t.includes(x))){if(Math.random()<.78)s+=2}else s+=.5});
+    if(s>bs){bs=s;best=j}});
+  return best}
+
+/* ---------- alur ---------- */
+async function play(g){
+  let start=Math.floor(Math.random()*P.length);
+  for(;;){
+    G.round++;G.phase='hint';P.forEach(p=>{p.vote=-1;p.vc=0});sel=-1;$('rv').classList.add('hide');
+    const order=[];for(let k=0;k<P.length;k++){const p=P[(start+k)%P.length];if(p.alive)order.push(p)}
+    start=(start+1)%P.length;
+    for(const p of order){
+      G.speaker=p;G.wait='';render();
+      if(p.bot){msg(`${p.n} sedang berpikir…`);await sleep(1000);if(g!==gid)return;p.hs.push(botHint(p))}
+      else{G.wait='hint';msg('Giliranmu — beri petunjuk tentang katamu tanpa menyebutnya');render();$('hi').value='';const t=await ask();if(g!==gid)return;p.hs.push(t);G.used.add(t.toLowerCase())}
+      G.wait='';render();await sleep(450);if(g!==gid)return}
+    G.speaker=null;G.phase='vote';
+    if(P[0].alive){G.wait='vote';msg('Semua sudah memberi petunjuk. Siapa yang katanya beda?');render();const v=await ask();if(g!==gid)return;P[0].vote=v}
+    else{G.wait='';msg('Kamu tereliminasi — menonton voting…');render();await sleep(1300);if(g!==gid)return}
+    G.wait='';alive().forEach(p=>{if(p.bot)p.vote=botVote(p)});
+    const cnt={};alive().forEach(p=>{cnt[p.vote]=(cnt[p.vote]||0)+1});P.forEach((p,i)=>{p.vc=cnt[i]||0});
+    G.phase='res';const mx=Math.max(...Object.values(cnt)),tops=Object.keys(cnt).filter(k=>cnt[k]===mx).map(Number);
+    let line;
+    if(tops.length>1){line='Suara seri — tidak ada yang tereliminasi.'}
+    else{const o=P[tops[0]];o.alive=false;line=`${o.n} tereliminasi (${mx} suara) — ternyata ${o.under?'UNDERCOVER':'WARGA'}, katanya “${o.word}”.`}
+    render();msg(line);await sleep(400);if(g!==gid)return;
+    const uA=P.filter(p=>p.alive&&p.under).length,al=alive().length;
+    if(!uA||al<=2){end(g,uA?'under':'civ');return}
+    if(P[0].alive){G.wait='cont';render();await ask();if(g!==gid)return}else{await sleep(1800);if(g!==gid)return}}}
+
+function end(g,w){
+  G.over=true;G.wait='';G.phase='';const me=P[0],win=(w==='civ')!==me.under;
+  if(win)st.w++;else st.l++;sv();render();
+  $('rv').classList.remove('hide');
+  $('rv').innerHTML=`Kata Warga: <b>${G.civ.w}</b> • Kata Undercover: <b>${G.und.w}</b><br>Peranmu: <b>${me.under?'Undercover':'Warga'}</b> • Undercover: <b>${P.filter(p=>p.under).map(p=>p.n).join(', ')}</b>`;
+  msg(w==='civ'?(win?'🏆 Undercover tertangkap — kamu menang!':'Warga menang. Kamu kalah sebagai Undercover!'):(win?'🏆 Undercover bertahan — kamu menang!':'Undercover bertahan sampai akhir. Kamu kalah!'),win?'win':'lose')}
+
+/* ---------- input ---------- */
+function submitHint(){
+  if(G.wait!=='hint')return;const t=$('hi').value.trim().replace(/\s+/g,' ');
+  if(!t){msg('Isi petunjuk dulu');return}
+  if(t.split(' ').length>3){msg('Maksimal 3 kata');return}
+  if(t.toLowerCase()===P[0].word.toLowerCase()||t.toLowerCase().includes(P[0].word.toLowerCase())){msg('Jangan sebut katamu langsung!');return}
+  done(t)}
+$('hs').onclick=submitHint;
+$('hi').addEventListener('keydown',e=>{if(e.key==='Enter')submitHint()});
+$('gr').addEventListener('click',e=>{const t=e.target.closest('.tile');if(!t||G.wait!=='vote')return;const i=+t.dataset.i;if(i===0||!P[i].alive)return;sel=i;render()});
+$('vs').onclick=()=>{if(G.wait==='vote'&&sel>=0){const v=sel;sel=-1;done(v)}};
+$('cn').onclick=()=>{if(G.wait==='cont')done()};
+let wt=null;
+$('wd').onclick=()=>{const v=$('wv');v.classList.toggle('bl');clearTimeout(wt);if(!v.classList.contains('bl'))wt=setTimeout(()=>v.classList.add('bl'),3500)};
+$('rs').onclick=init;
+$('np').addEventListener('click',e=>{const n=e.target.dataset&&e.target.dataset.n;if(!n)return;np=+n;[].forEach.call($('np').children,x=>x.classList.toggle('on',x===e.target));init()});
+init();
+})();
+</script>
+</body></html>

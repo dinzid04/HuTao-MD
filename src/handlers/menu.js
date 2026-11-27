@@ -57,7 +57,11 @@ global.menucall = buildMenuBlock('Menu Call', [
 
 global.menuclan = buildMenuBlock('Menu Clan', [
     'clanwar', 'claninfo', 'clanjoin', 'clankick', 'clanleave',
-    'clancreate', 'claninvite', 'clanmembers', 'clanleaderboard'
+    'clancreate', 'claninvite', 'clanmembers', 'clanleaderboard',
+    'clanxp', 'clanbank', 'clanboss', 'clanraid', 'clanrank', 'clanlevel',
+    'clandesc', 'logoclan', 'clanraport', 'clanrename', 'clancheckin',
+    'clandemote', 'clanpromote', 'clanupgrade', 'clanannounce', 'clanjoinraid',
+    'clanwarscore', 'clanwaraccept', 'clanwarhistory'
 ]);
 
 global.menucpanelv1 = buildMenuBlock('Menu Cpanel V1', [
@@ -114,13 +118,24 @@ global.menuextra = buildMenuBlock('Menu Extra', [
 ]);
 
 global.menufun = buildMenuBlock('Menu Fun', [
-    'rate', 'bucin', 'kapan', 'putus', 'senja', 'siapa', 'tolak', 'apakah', 'dimana',
-    'gombal', 'tembak', 'terima', 'akankah', 'bisakah', 'cekhoki', 'cekimut',
-    'cekwibu', 'confess', 'cekbaper', 'cekbucin', 'cekgabut', 'cekgamer',
-    'cekjodoh', 'ceknolep', 'cekpacar', 'ceksange', 'ceksetia', 'ceksigma',
-    'cektolol', 'haruskah', 'cekcantik', 'cekkhodam', 'cekjomblo',
-    'cekpintar', 'faktaunik', 'soulmatch', 'cekbirahi', 'cekganteng', 'balasconfess',
-    'puisi', 'renungan', 'top5', 'birthday', 'setbirthday', 'birthdaylist', 'rules'
+    'coba', 'rate', 'bucin', 'jodoh', 'kapan', 'mimpi', 'puisi', 'putus', 'rules',
+    'senja', 'siapa', 'sulap', 'tolak', 'top5', 'apakah', 'berapa', 'cekiq', 'dimana',
+    'gombal', 'tembak', 'terima', 'akankah', 'bisakah', 'cekalay', 'cekhoki', 'cekimut',
+    'cekjago', 'cekkece', 'cekkepo', 'cekkuat', 'ceklucu', 'ceknoob', 'cekwibu',
+    'confess', 'menfess', 'mengapa', 'birthday', 'cekbaper', 'cekbijak', 'cekbucin',
+    'cekgabut', 'cekgacha', 'cekgalak', 'cekjodoh', 'cekjujur', 'cekjulid', 'cekkarma',
+    'cekkaya', 'cekkeren', 'cekkocak', 'ceklapar', 'ceklebay', 'ceklemot', 'cekmalas',
+    'ceknolep', 'cekotaku', 'cekpacar', 'cekrajin', 'cekramah', 'ceksabar', 'ceksange',
+    'ceksetia', 'ceksigma', 'ceksopan', 'cektolol', 'cektoxic', 'cektulus', 'haruskah',
+    'renungan', 'bagaimana', 'cekcantik', 'cekcerdas', 'cekenergi', 'cekgamer', 'cekjenius',
+    'cekjomblo', 'cekkhodam', 'cekmiskin', 'cekpintar', 'cekrezeki', 'ceksadboy',
+    'ceksultan', 'cektampan', 'cektegas', 'cektinggi', 'cekyandere', 'faktaunik',
+    'menfessku', 'soulmatch', 'banmenfess 🅞', 'cekbahagia', 'cekbirahi', 'cekganteng',
+    'cekhumoris', 'cekkpopers', 'cekmenfess', 'cekngantuk', 'ceksadgirl', 'setbirthday',
+    'balasconfess', 'balasmenfess', 'birthdaylist', 'blokmenfess', 'cekcreative',
+    'cekdermawan', 'cekromantis', 'cektsundere', 'lapormenfess', 'tarikmenfess',
+    'tolakmenfess', 'cekkepribadian', 'cekintrovert', 'cekkarismatik', 'cekpemberani',
+    'samaranmenfess', 'unblokmenfess'
 ]);
 
 global.menugame = buildMenuBlock('Menu Game', [
@@ -137,16 +152,18 @@ global.menugame = buildMenuBlock('Menu Game', [
 ]);
 
 global.menugroup = buildMenuBlock('Menu Group', [
-    'afk', 'poll', 'absen', 'claim', 'intro', 'limit', 'on 🅐', 'add 🅐', 'off 🅐',
+    'afk', 'acc 🅐', 'poll', 'absen', 'claim', 'intro', 'limit', 'on 🅐', 'add 🅐', 'off 🅐',
     'gajoin', 'galist', 'linkgc', 'kick 🅐', 'mute 🅐', 'open 🅐', 'warn 🅐',
-    'topchat', 'close 🅐', 'gaend 🅐', 'totag 🅐', 'cekabsen', 'giveaway', 'delete 🅐',
+    'cekidgc', 'getppgc', 'topchat', 'approve 🅐', 'close 🅐', 'delppgc 🅐', 'gaend 🅐',
+    'pinchat 🅐', 'setppgc 🅐', 'totag 🅐', 'cekabsen', 'giveaway', 'delete 🅐',
     'demote 🅐', 'tagall 🅐', 'unwarn 🅐', 'sider', 'cekonline', 'kicksider 🅐', 'groupinfo', 'listadmin',
     'rulesgrup', 'addsewa 🅞', 'delsewa 🅞', 'hidetag 🅐', 'promote 🅐', 'setleft 🅐',
-    'setopen 🅐', 'gacreate 🅐', 'gadelete 🅐', 'gareroll 🅐', 'listsewa 🅞',
+    'setopen 🅐', 'unpinchat 🅐', 'autoreply 🅐', 'gacreate 🅐', 'gadelete 🅐', 'gareroll 🅐', 'listsewa 🅞',
     'listwarn', 'setclose 🅐', 'setintro 🅐', 'slowmode 🅐', 'resetchat 🅐',
-    'resetwarn 🅐', 'setdeskgc 🅐', 'setnamegc 🅐', 'addbadword 🅐', 'delbadword 🅐',
+    'resetwarn 🅐', 'selfthisgc 🅐', 'setdeskgc 🅐', 'setnamegc 🅐', 'addbadword 🅐', 'delbadword 🅐',
     'hapusabsen 🅐', 'mulaiabsen 🅐', 'mutemember 🅐', 'setwelcome 🅐',
-    'listbadword 🅐', 'resetlinkgc 🅐', 'levelupnotif 🅐', 'setrulesgrup 🅐',
+    'listbadword 🅐', 'publicthisgc 🅐', 'resetlinkgc 🅐', 'addcmdsticker 🅐', 'delcmdsticker 🅐', 'listcmdsticker',
+    'levelupnotif 🅐', 'setrulesgrup 🅐',
     'sistemsewa 🅞', 'unmutemember 🅐', 'settheme 🅐', 'cekonoff 🅐', 'jagagrup 🅐'
 ]);
 
@@ -186,20 +203,22 @@ global.menuinspector = buildMenuBlock('Menu LID Inspector', [
 ]);
 
 global.menumaker = buildMenuBlock('Menu Maker', [
-    'hd', 'iqc', 'fakeff', 'fakeml', 'fakewa', 'remini', 'tobotak', 'tohitam',
-    'removebg', 'bananagen', 'tofigure 🅟',
-    'musiccard', 'fakespotify', 'topixel', 'darkness', 'kalender', 'fakefbkomen'
+    'hd', 'iqc', 'ektp', 'nokia', 'fakeff', 'fakeml', 'fakewa', 'remini', 'fakeatm',
+    'iqcpink', 'tobotak', 'tohitam', 'topixel', 'codesnap', 'darkness', 'fakecall',
+    'fakedana', 'iqcmerah', 'kalender', 'kwitansi', 'pakustad', 'removebg', 'bananagen',
+    'fakestory', 'faketweet', 'musiccard', 'tofigure 🅟', 'buatquotes', 'iqcwindows',
+    'fakespotify', 'boardingpass', 'commentquote', 'fakebankjago', 'fakefbkomen', 'fakesertifikat'
 ]);
 
 global.menuowner = buildMenuBlock('Menu Owner', [
-    'ping 🅞', 'self 🅞', 'addbl 🅞', 'delbl 🅞', 'getsc 🅞', 'cekapi 🅞', 'cekmenu', 'listoff 🅞',
-    'backup 🅞', 'listbl 🅞', 'public 🅞', 'savedb 🅞', 'addprem 🅞', 'blpilih 🅞',
-    'delprem 🅞', 'setmenu 🅞', 'addlimit 🅞', 'addowner 🅞', 'autoread 🅞',
-    'dbstatus 🅞', 'dellimit 🅞', 'listgrub 🅞', 'listprem 🅞', 'outallgc 🅞',
+    'ban 🅞', 'bcpc 🅞', 'bcgc 🅞', 'ping 🅞', 'self 🅞', 'addbl 🅞', 'delbl 🅞', 'getsc 🅞', 'unban 🅞', 'cekapi 🅞', 'cekmenu', 'listoff 🅞',
+    'backup 🅞', 'listbl 🅞', 'public 🅞', 'savedb 🅞', 'addprem 🅞', 'autobio 🅞', 'blpilih 🅞',
+    'delprem 🅞', 'listban 🅞', 'setmenu 🅞', 'addlimit 🅞', 'addowner 🅞', 'anticall 🅞', 'autoread 🅞',
+    'buatgrup 🅞', 'dbstatus 🅞', 'dellimit 🅞', 'listgrub 🅞', 'listprem 🅞', 'outallgc 🅞',
     'outpilih 🅞', 'setblog 🅞', 'setlimit 🅞', 'addplugin 🅞', 'delplugin 🅞', 'developer 🅞',
-    'getplugin 🅞', 'outopengc 🅞', 'setprefix 🅞', 'autobackup 🅞', 'listplugin 🅞',
-    'outclosegc 🅞', 'setrestart 🅞', 'settimezone 🅞', 'togglefitur 🅞',
-    'levelupnotif 🅞', 'listgrubopen 🅞', 'reloadplugin 🅞', 'listgrubclose 🅞',
+    'getplugin 🅞', 'outopengc 🅞', 'setprefix 🅞', 'antidelete 🅞', 'autobackup 🅞', 'clearcache 🅞', 'listplugin 🅞',
+    'outclosegc 🅞', 'setrestart 🅞', 'autoreactsw 🅞', 'settimezone 🅞', 'togglefitur 🅞',
+    'clearsessions 🅞', 'levelupnotif 🅞', 'listgrubopen 🅞', 'reloadplugin 🅞', 'listgrubclose 🅞',
     'resetlimitall 🅞', 'setlimitharian 🅞',
     'updatesc 🅞', 'cekupdate 🅞', 'notifupdate 🅞', 'cekonoff 🅞',
     'autotyping 🅞', 'readsw 🅞', 'kirimch 🅞', 'sendch 🅞', 'fwdch 🅞',
@@ -237,19 +256,25 @@ global.menuprimbon = buildMenuBlock('Menu Primbon', [
 ]);
 
 global.menurich = buildMenuBlock('Menu Rich Game', [
-    'ttc', '2048', 'dino', 'mbim', 'chess', 'plane', 'simon', 'snake', 'stack',
-    'flappy', 'memory', 'tetris', 'wordle', 'breakout', 'connect4', 'richcard',
-    'richcode', 'richgame', 'richping', 'richstats', 'richtable', 'minesweeper'
+    'dam', 'ttc', 'uno', '2048', 'ceme', 'dino', 'ludo', 'mbim', 'pong', 'chess',
+    'gaple', 'mafia', 'plane', 'poker', 'simon', 'snake', 'stack', 'whack', 'bjrich',
+    'flappy', 'isekai', 'memory', 'sudoku', 'tetris', 'typing', 'wordle', 'destroy',
+    'geodash', 'othello', 'breakout', 'connect4', 'mathrich', 'richcard', 'richcode',
+    'richgame', 'richping', 'catchstar', 'colortest', 'richstats', 'richtable',
+    'undercover', 'minesweeper', 'ulartanggarich'
 ]);
 
 global.menurpg = buildMenuBlock('Menu RPG', [
-    'me', 'atm', 'beg', 'boss', 'dice', 'duel', 'feed', 'heal', 'open', 'shop',
-    'slot', 'craft', 'daily', 'kerja', 'kolam', 'level', 'marry', 'ojek', 'pasar',
-    'quest', 'tarik', 'casino', 'kurir', 'maling', 'mining', 'mulung', 'nabung',
-    'nebang', 'ngamen', 'nguli', 'parkir', 'repair', 'weekly', 'berburu', 'divorce',
-    'kandang', 'levelup', 'lottery', 'mancing', 'monthly', 'petshop', 'profile',
-    'upgrade', 'buylimit', 'coinflip', 'merampok', 'transfer', 'adventure', 'berladang',
-    'inventory', 'leaderboard', 'selectskill'
+    'me', 'atm', 'beg', 'boss', 'cafe', 'cook', 'dice', 'duel', 'feed', 'heal', 'open', 'shop',
+    'slot', 'arena', 'craft', 'crime', 'daily', 'gacha', 'kerja', 'kolam', 'level', 'marry', 'ojek', 'pasar',
+    'quest', 'saham', 'sawer', 'tarik', 'akuntt', 'akunyt', 'bansos', 'bounty', 'casino', 'gajian', 'hourly',
+    'kurir', 'livett', 'liveyt', 'maling', 'mining', 'mulung', 'nabung', 'nebang', 'ngamen', 'nguli', 'parkir',
+    'polisi', 'redeem', 'repair', 'warnet', 'warteg', 'weekly', 'alchemy', 'bankcek', 'berburu', 'buykoin',
+    'creatett', 'createyt', 'dailybox', 'divorce', 'enchant', 'endorse', 'kandang', 'levelup', 'lottery',
+    'mancing', 'monthly', 'petshop', 'prestige', 'profile', 'upgrade', 'berdagang', 'berladang', 'bossfight',
+    'buylimit', 'coinflip', 'cryptobuy', 'cryptosell', 'dragonraid', 'freelance', 'inventory', 'merampok',
+    'transfer', 'adventure', 'blacksmith', 'waifugacha', 'cryptoprice', 'leaderboard', 'reincarnate',
+    'selectskill', 'cryptoportfolio'
 ]);
 
 global.menusearch = buildMenuBlock('Menu Search', [
@@ -299,6 +324,10 @@ global.menutools = buildMenuBlock('Menu Tools', [
     'speedtest', 'clonesite', 'cariloker', 'ingatkan', 'listingat', 'delingat'
 ]);
 
+global.menuvercel = buildMenuBlock('Menu Vercel', [
+    'vlist', 'vinfo', 'vdeploy', 'vdelete', 'vdomain', 'setvercel', 'vdeployments'
+]);
+
 global.menusewa = global.menugroup;
 global.menugc = global.menuowner;
 
@@ -307,7 +336,7 @@ global.mainmenu = buildMenuBlock('Daftar Menu', [
     'menu rpg', 'menu call', 'menu clan', 'menu game', 'menu join', 'menu rich',
     'menu anime', 'menu audio', 'menu extra', 'menu group', 'menu jagagrup', 'menu maker',
     'menu owner', 'menu setup', 'menu stalk', 'menu store', 'menu tools', 'menu cloner',
-    'menu ephoto', 'menu islami', 'menu search', 'menu stiker', 'menu channel',
+    'menu ephoto', 'menu islami', 'menu search', 'menu stiker', 'menu vercel', 'menu channel',
     'menu jadibot', 'menu premium', 'menu primbon', 'menu download', 'menu roleplay',
     'menu cpanel v1', 'menu cpanel v2', 'menu cpanel v3'
 ]);
@@ -349,7 +378,8 @@ global.allmenu = [
     global.menustalk,
     global.menusticker,
     global.menulist,
-    global.menutools
+    global.menutools,
+    global.menuvercel
 ].join('\n\n');
 
 let file = require.resolve(__filename);

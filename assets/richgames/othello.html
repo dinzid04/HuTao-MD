@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Othello Live</title>
+<style>
+:root{--bg:#0f1115;--card:#181b22;--card2:#20242d;--ink:#fff;--soft:#a3aab8;--line:#2b303b;--acc:#22c55e;--red:#ef4444;--warn:#f59e0b;--sys:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{background:transparent;color:var(--ink);font-family:var(--sys);min-height:100vh;overflow-x:hidden;-webkit-font-smoothing:antialiased}
+.stage{display:flex;justify-content:center;padding:14px 10px}
+.app{width:100%;max-width:380px;border-radius:16px;overflow:hidden;background:linear-gradient(180deg,#232733 0%,#171a21 30%,var(--bg) 70%);box-shadow:0 18px 40px rgba(0,0,0,.55);padding:14px 12px 12px}
+.top{display:flex;align-items:center;gap:9px;margin-bottom:12px}
+.logo{width:32px;height:32px;border-radius:9px;background:#14653c;flex:none;display:flex;align-items:center;justify-content:center}
+.meta{flex:1;min-width:0}.title{font-size:14px;font-weight:800}.sub{font-size:10.5px;color:var(--soft);margin-top:2px}
+.chips{display:flex;gap:6px;margin-bottom:10px}
+.chip{flex:1;border:1px solid var(--line);background:var(--card);color:var(--soft);border-radius:20px;padding:6px 0;font-size:12px;font-weight:700;cursor:pointer}
+.chip.on{background:var(--acc);border-color:var(--acc);color:#04130a}
+.score{display:flex;gap:8px;margin-bottom:10px}
+.pl{flex:1;display:flex;align-items:center;gap:9px;background:var(--card);border:1.5px solid var(--line);border-radius:12px;padding:7px 10px;transition:.2s}
+.pl.act{border-color:var(--acc);box-shadow:0 0 0 3px rgba(34,197,94,.14)}
+.pl svg{flex:none}.pl .n{font-size:11px;color:var(--soft);font-weight:700}.pl .v{font-size:20px;font-weight:800;line-height:1.1}
+.boardw{border-radius:14px;overflow:hidden;box-shadow:0 8px 20px rgba(0,0,0,.5)}
+.boardw svg{display:block;width:100%;height:auto;touch-action:manipulation}
+.msg{min-height:38px;display:flex;align-items:center;justify-content:center;text-align:center;font-size:12.5px;font-weight:700;color:var(--soft);padding:8px 4px}
+.msg.win{color:var(--acc)}.msg.lose{color:var(--red)}.msg.draw{color:var(--warn)}
+.row{display:flex;gap:8px}
+.btn{flex:1;border:0;border-radius:10px;padding:10px 12px;font-size:13px;font-weight:800;cursor:pointer;background:var(--acc);color:#04130a}
+.btn.alt{background:var(--card2);color:var(--ink);border:1px solid var(--line)}
+.stat{display:flex;justify-content:center;gap:14px;margin-top:10px;font-size:11px;color:var(--soft)}.stat b{color:var(--ink)}
+.cr{text-align:center;margin-top:10px;font-size:10px;color:#6b7280;letter-spacing:.3px}.cr b{color:#9aa3b2}
+.fl{animation:fl .45s ease;transform-box:fill-box;transform-origin:center}
+.pop{animation:pop .28s ease-out;transform-box:fill-box;transform-origin:center}
+@keyframes fl{0%{transform:scaleX(1)}50%{transform:scaleX(.04)}100%{transform:scaleX(1)}}
+@keyframes pop{0%{transform:scale(.2);opacity:0}100%{transform:scale(1);opacity:1}}
+.hint{animation:pulse 1.6s ease-in-out infinite}
+@keyframes pulse{50%{opacity:.35}}
+</style></head><body>
+<div class="stage"><div class="app">
+  <div class="top">
+    <div class="logo"><svg width="22" height="22" viewBox="0 0 22 22"><circle cx="8" cy="11" r="6.5" fill="#111"/><circle cx="14" cy="11" r="6.5" fill="#f1f3f6"/></svg></div>
+    <div class="meta"><div class="title">Othello Live</div><div class="sub" id="sub">Lawan bot • kamu hitam, jalan duluan</div></div>
+  </div>
+  <div class="chips" id="lv"><button class="chip" data-l="0">Mudah</button><button class="chip on" data-l="1">Sedang</button><button class="chip" data-l="2">Susah</button></div>
+  <div class="score">
+    <div class="pl act" id="p1"><svg width="26" height="26" viewBox="0 0 26 26"><use href="#dk" x="0" y="0"/></svg><div><div class="n">KAMU</div><div class="v" id="s1">2</div></div></div>
+    <div class="pl" id="p2"><svg width="26" height="26" viewBox="0 0 26 26"><use href="#wh" x="0" y="0"/></svg><div><div class="n">BOT</div><div class="v" id="s2">2</div></div></div>
+  </div>
+  <div class="boardw"><svg id="bd" viewBox="0 0 336 336"></svg></div>
+  <div class="msg" id="msg"></div>
+  <div class="row"><button class="btn alt" id="hn">Petunjuk: ON</button><button class="btn" id="rs">Main Ulang</button></div>
+  <div class="stat"><span>Menang <b id="w">0</b></span><span>Seri <b id="d">0</b></span><span>Kalah <b id="l">0</b></span></div>
+  <div class="cr">Create By <b>DinzID</b></div>
+</div></div>
+
+<svg width="0" height="0" style="position:absolute"><defs>
+  <radialGradient id="gb" cx=".35" cy=".3" r=".85"><stop offset="0" stop-color="#5b606b"/><stop offset=".45" stop-color="#1b1d22"/><stop offset="1" stop-color="#050506"/></radialGradient>
+  <radialGradient id="gw" cx=".35" cy=".3" r=".85"><stop offset="0" stop-color="#fff"/><stop offset=".6" stop-color="#e3e6ec"/><stop offset="1" stop-color="#b4bac6"/></radialGradient>
+  <linearGradient id="gf" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1f8a52"/><stop offset="1" stop-color="#136b3d"/></linearGradient>
+  <g id="dk"><circle cx="13" cy="13" r="11" fill="url(#gb)"/></g>
+  <g id="wh"><circle cx="13" cy="13" r="11" fill="url(#gw)"/></g>
+</defs></svg>
+
+<script>
+(function(){
+const $=id=>document.getElementById(id);
+const Q=[[100,-20,10,5],[-20,-50,-2,-2],[10,-2,-1,-1],[5,-2,-1,-1]];
+const W=Array.from({length:8},(_,r)=>Array.from({length:8},(_,c)=>Q[r<4?r:7-r][c<4?c:7-c]));
+const DIR=[[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]];
+const IN=(r,c)=>r>=0&&r<8&&c>=0&&c<8;
+function flips(b,r,c,p){if(b[r][c])return[];const o=3-p,out=[];for(const[dr,dc]of DIR){let rr=r+dr,cc=c+dc;const l=[];while(IN(rr,cc)&&b[rr][cc]===o){l.push([rr,cc]);rr+=dr;cc+=dc}if(l.length&&IN(rr,cc)&&b[rr][cc]===p)for(const x of l)out.push(x)}return out}
+function moves(b,p){const m=[];for(let r=0;r<8;r++)for(let c=0;c<8;c++){const f=flips(b,r,c,p);if(f.length)m.push({r,c,f})}return m}
+function put(b,m,p){const n=b.map(x=>x.slice());n[m.r][m.c]=p;m.f.forEach(([r,c])=>{n[r][c]=p});return n}
+function count(b){let a=0,z=0;for(const r of b)for(const c of r){if(c===1)a++;else if(c===2)z++}return[a,z]}
+function ev(b,me){let s=0;for(let r=0;r<8;r++)for(let c=0;c<8;c++){if(b[r][c]===me)s+=W[r][c];else if(b[r][c])s-=W[r][c]}return s+6*(moves(b,me).length-moves(b,3-me).length)}
+function mm(b,d,a,be,p,me){
+  const ms=moves(b,p);
+  if(!ms.length){const o=moves(b,3-p);if(!o.length){const[x,y]=count(b);return(me===1?x-y:y-x)*1000}if(d<=0)return ev(b,me);return mm(b,d-1,a,be,3-p,me)}
+  if(d<=0)return ev(b,me);
+  if(p===me){let v=-1e9;for(const m of ms){v=Math.max(v,mm(put(b,m,p),d-1,a,be,3-p,me));a=Math.max(a,v);if(a>=be)break}return v}
+  let v=1e9;for(const m of ms){v=Math.min(v,mm(put(b,m,p),d-1,a,be,3-p,me));be=Math.min(be,v);if(a>=be)break}return v}
+function pick(b,ms,lv){
+  if(lv===0)return ms[Math.floor(Math.random()*ms.length)];
+  if(lv===1){let best=null,bs=-1e9;for(const m of ms){const s=W[m.r][m.c]*2+m.f.length+Math.random();if(s>bs){bs=s;best=m}}return best}
+  let best=ms[0],bs=-1e9;for(const m of ms){const s=mm(put(b,m,2),3,-1e9,1e9,1,2)+Math.random();if(s>bs){bs=s;best=m}}return best}
+
+let B,turn,lv=1,over,busy,show=true,last=null,fset={},st={w:0,d:0,l:0};
+try{st=Object.assign(st,JSON.parse(localStorage.getItem('yt_othello')||'{}'))}catch(e){}
+function save(){try{localStorage.setItem('yt_othello',JSON.stringify(st))}catch(e){}}
+
+function init(){
+  B=Array.from({length:8},()=>Array(8).fill(0));B[3][3]=2;B[4][4]=2;B[3][4]=1;B[4][3]=1;
+  turn=1;over=false;busy=false;last=null;fset={};msg('Giliranmu — ketuk petak bertitik');draw()}
+
+function msg(t,cls){const m=$('msg');m.textContent=t;m.className='msg'+(cls?' '+cls:'')}
+
+function draw(){
+  const legal=(!over&&turn===1&&!busy)?moves(B,1):[];const lk={};legal.forEach(m=>{lk[m.r+','+m.c]=1});
+  let s='<rect width="336" height="336" fill="#0c4a2a"/><rect x="4" y="4" width="328" height="328" rx="8" fill="url(#gf)"/>';
+  for(let i=0;i<=8;i++){const p=8+i*40;s+=`<path d="M${p} 8V328M8 ${p}H328" stroke="#0b4d2b" stroke-width="1.3" opacity=".9"/>`}
+  [2,6].forEach(a=>[2,6].forEach(b=>{s+=`<circle cx="${8+a*40}" cy="${8+b*40}" r="2.6" fill="#0b4d2b"/>`}));
+  for(let r=0;r<8;r++)for(let c=0;c<8;c++){
+    const x=8+c*40+20,y=8+r*40+20,v=B[r][c],k=r+','+c;
+    if(v){
+      const cls=(last&&last.r===r&&last.c===c)?'pop':(fset[k]?'fl':'');
+      s+=`<g class="${cls}"><ellipse cx="${x+1}" cy="${y+3}" rx="16" ry="14.5" fill="#000" opacity=".35"/><circle cx="${x}" cy="${y}" r="16.5" fill="url(#${v===1?'gb':'gw'})"/><ellipse cx="${x-4.5}" cy="${y-6}" rx="6.5" ry="3.6" fill="#fff" opacity="${v===1?.14:.55}"/></g>`;
+      if(last&&last.r===r&&last.c===c)s+=`<circle cx="${x}" cy="${y}" r="3" fill="${v===1?'#ef4444':'#ef4444'}"/>`;
+    }else if(show&&lk[k])s+=`<circle class="hint" cx="${x}" cy="${y}" r="5" fill="#fff" opacity=".55"/>`;
+    s+=`<rect data-r="${r}" data-c="${c}" x="${x-20}" y="${y-20}" width="40" height="40" fill="transparent"/>`}
+  $('bd').innerHTML=s;
+  const[a,z]=count(B);$('s1').textContent=a;$('s2').textContent=z;
+  $('p1').classList.toggle('act',!over&&turn===1);$('p2').classList.toggle('act',!over&&turn===2);
+  $('w').textContent=st.w;$('d').textContent=st.d;$('l').textContent=st.l}
+
+function finish(){
+  over=true;const[a,z]=count(B);draw();
+  if(a>z){st.w++;msg(`Kamu menang ${a} – ${z}! 🎉`,'win')}else if(z>a){st.l++;msg(`Bot menang ${z} – ${a}. Coba lagi!`,'lose')}else{st.d++;msg(`Seri ${a} – ${z}`,'draw')}
+  save();draw()}
+
+function next(){
+  const mine=moves(B,1),bot=moves(B,2);
+  if(!mine.length&&!bot.length)return finish();
+  if(turn===1&&!mine.length){msg('Kamu tidak punya langkah — giliran dilewati');turn=2;draw();return setTimeout(botMove,900)}
+  if(turn===2&&!bot.length){msg('Bot tidak punya langkah — giliranmu lagi');turn=1;busy=false;draw();return}
+  if(turn===2){busy=true;draw();setTimeout(botMove,650)}else{busy=false;msg('Giliranmu — ketuk petak bertitik');draw()}}
+
+function mark(m){last={r:m.r,c:m.c};fset={};m.f.forEach(([r,c])=>{fset[r+','+c]=1})}
+function botMove(){
+  if(over)return;const ms=moves(B,2);if(!ms.length){turn=1;return next()}
+  const m=pick(B,ms,lv);mark(m);B=put(B,m,2);turn=1;
+  msg(`Bot jalan di ${'ABCDEFGH'[m.c]}${m.r+1} (+${m.f.length})`);next()}
+
+$('bd').addEventListener('click',e=>{
+  const t=e.target;if(over||busy||turn!==1||!t.dataset||t.dataset.r===undefined)return;
+  const r=+t.dataset.r,c=+t.dataset.c,f=flips(B,r,c,1);
+  if(!f.length){msg('Langkah tidak valid — pilih petak bertitik');return}
+  const m={r,c,f};mark(m);B=put(B,m,1);turn=2;msg(`Kamu jalan di ${'ABCDEFGH'[c]}${r+1} (+${f.length})`);next()});
+$('lv').addEventListener('click',e=>{const l=e.target.dataset&&e.target.dataset.l;if(l===undefined)return;lv=+l;[].forEach.call($('lv').children,x=>x.classList.toggle('on',x===e.target));$('sub').textContent='Lawan bot • level '+['mudah','sedang','susah'][lv];init()});
+$('rs').onclick=init;
+$('hn').onclick=()=>{show=!show;$('hn').textContent='Petunjuk: '+(show?'ON':'OFF');draw()};
+init();
+})();
+</script>
+</body></html>

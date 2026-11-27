@@ -1,20 +1,23 @@
 {
-  "version": "1.5.0",
-  "updatedAt": "2026-11-27",
-  "summary": "Custom Auto-React Stiker/Emoji per Command, Full Button Setmenu 8 Ala Elsyaa, dan 95+ Fitur Baru Lulus Audit Live (Anime, Channel, Roleplay, Audio Studio, Game, Sticker, Maker, Search, Tools)",
+  "version": "1.6.0",
+  "updatedAt": "2026-11-28",
+  "summary": "Perbaikan Permanen Setmenu & Settings MongoDB, Stabilitas Koneksi Baileys & Optimasi RAM, AntiDelete (Grup & Private), AntiCall (Suara & Video), Menu Vercel, 21 Rich Games Baru & 190+ Fitur Baru Lulus Audit",
   "added": [
-    "Fitur Custom Auto-React (.customreact, .addreact, .setreact, .reactcount, .savereact, .listreact, .delreact, .clearreact): mendukung sticker reaction native (associationType 11) dari reply stiker/foto/video + emoji, target spesifik per command atau 'all', jumlah react kustom (1-5x), library preset stiker lokal anti-expired, dan terintegrasi di .cekonoff",
-    "Kategori baru Menu Anime (.menu anime): .anilist, .topanime, .anischedule, .rekomanime, .tracemoe, .konachan, .yande, .animewall, .kusonime (100% API aktif & terverifikasi live)",
-    "Kategori baru Menu Channel (.menu channel): .idch, .stalkch, .chinfo, .setch, .chcreate, .chname, .chdesc, .chpp, .chfollow, .chunfollow, .chmute, .chunmute, .chptv, .chvn",
-    "Kategori baru Menu Roleplay (.menu roleplay): .hug, .pat, .kiss, .slap, .cuddle, .poke, .blush, .bonk, .bite, .dance, .rpprofile, .rpmood, .rpact dengan animasi GIF aktif (nekos.best + otakugifs fallback)",
-    "14 efek baru Menu Audio Studio FFmpeg: .echo, .earrape, .fast, .slow, .fat, .blown, .smooth, .tupai, .pitch, .flanger, .chorus, .tremolo, .distortion, .apulsator",
-    "Mini-game baru 100% lokal: .bomb, .hangman, .mathquiz, .tebakangka, .tebakemoji, .stopgame",
-    "Sticker, Maker, Search, Stalk, Tools & Fun baru bebas duplikat & lulus audit live: .smeme, .ttp, .attp, .bratgreen, .musiccard, .fakespotify, .topixel, .darkness, .kalender, .fakefbkomen, .wiki, .kripto, .nasa, .detik, .cookpad, .mcpedl, .hokchar, .ytstalk, .calc, .base64, .text2biner, .biner2text, .barcode, .kurs, .jarak, .cekoperator, .cekplat, .kodebahasa, .kodewilayah, .cekwa, .cekbio, .getpp, .toptv, .tofile, .compress, .compressvid, .img2pdf, .speedtest, .clonesite, .cariloker, .ingatkan/.listingat/.delingat, .birthday/.setbirthday/.birthdaylist, .puisi, .renungan, .top5, .rules/.setrules"
+    "Fitur Anti-Delete Pesan (.antidelete on/off): otomatis mengirim laporan pesan teks maupun media yang dihapus ke DM Owner dengan tampilan terpisah untuk Grup (Nama Grup, Kontak & Nama Penghapus, Waktu, Isi/Media) dan Private Chat (Nama Kontak, Nomor, Waktu, Isi/Media), hemat 0 buffer di RAM",
+    "Fitur Anti-Call Suara & Video (.anticall on/off/block): menolak otomatis baik Panggilan Suara (Telepon Biasa) maupun Video Call, mengirim peringatan ke penelpon, opsi auto-block (.anticall block), serta laporan detail ke DM Owner, terintegrasi di .cekonoff",
+    "Fitur Kontrol Owner Baru: .autobio, .autoreactsw, .clearcache, .clearsessions (aman tanpa logout), .buatgrup, .ban, .unban, .listban, .bcpc, .bcgc",
+    "21 Game Interaktif HTML Baru di Menu Rich Game (.menu rich): .ludo, .uno, .poker, .gaple, .dam, .othello, .ceme, .bjrich, .mafia, .undercover, .ulartanggarich, .sudoku, .pong, .geodash, .isekai, .typing, .whack, .catchstar, .colortest, .destroy, .mathrich (100% aset lokal instan anti-404)",
+    "Kategori Baru Menu Vercel (.menu vercel): .setvercel, .vdeploy (deploy langsung file .html / .zip / kode HTML ke website aktif), .vlist, .vinfo, .vdeployments, .vdomain, .vdelete",
+    "Ekspansi Besar Menu RPG (39 command baru): Simulator Crypto & Saham (.cryptoprice, .cryptobuy, .cryptosell, .cryptoportfolio, .saham), Simulator YouTuber & TikToker (.createyt, .akunyt, .liveyt, .creatett, .akuntt, .livett, .endorse, .sawer), Profesi & Ekonomi (.warnet, .warteg, .cafe, .berdagang, .freelance, .polisi, .crime, .bansos, .gajian, .hourly, .dailybox, .redeem, .bankcek, .buykoin), Battle & Crafting (.arena, .bossfight, .dragonraid, .bounty, .blacksmith, .alchemy, .cook, .enchant, .gacha, .waifugacha, .prestige, .reincarnate)",
+    "Ekspansi Besar Menu Clan (19 command baru): .clanbank, .clancheckin, .clanlevel, .clanxp, .clanupgrade, .clandesc, .clanrename, .logoclan, .clanpromote, .clandemote, .clanannounce, .clanboss, .clanraid, .clanjoinraid, .clanrank, .clanraport, .clanwaraccept, .clanwarhistory, .clanwarscore",
+    "Suite Menfess Pro & 59 Fitur Cek/Fun Baru (.menu fun): .menfess, .balasmenfess, .menfessku, .cekmenfess, .tarikmenfess, .tolakmenfess, .blokmenfess, .unblokmenfess, .lapormenfess, .samaranmenfess, .banmenfess, 52 fitur .cek* (.cekalay, .cekiq, .cekkepribadian, .ceksultan, .cekgacha, dll) serta .bagaimana, .berapa, .mengapa, .mimpi, .sulap, .jodoh, .coba",
+    "18 Generator Lokal Menu Maker (.menu maker): .ektp, .fakedana, .fakebankjago, .fakeatm, .boardingpass, .fakecall, .fakestory, .faketweet, .fakesertifikat, .iqcpink, .iqcmerah, .iqcwindows, .buatquotes, .commentquote, .codesnap, .kwitansi, .nokia, .pakustad",
+    "14 Fitur Baru Menu Group (.menu group): .acc / .approve (kelola request join grup), .setppgc, .delppgc, .getppgc, .pinchat, .unpinchat, .autoreply, .addcmdsticker / .delcmdsticker / .listcmdsticker (stiker jadi shortcut command), .cekidgc, .selfthisgc, .publicthisgc"
   ],
   "fixed": [
-    "Perbaikan .setmenu 8 (Elsyaa Style): kini menampilkan FULL set button ala Elsyaa (Menu single_select + Support single_select + Contact Owner CTA URL + limited_time_offer) pada .menu, .allmenu, maupun .menu <kategori>, tetap mempertahankan 100% teks, font, dan tata letak default HuTao - MD"
+    "Perbaikan permanen bug .setmenu (misal .setmenu 8) & pengaturan Owner yang ikut ke-reset setelah .updatesc atau restart panel meski memakai MongoDB: kini setiap perubahan langsung di-flush instan ke disk + MongoDB dengan perbandingan timestamp (_meta.updatedAt & settings._updatedAt) sehingga payload MongoDB yang lebih lama tidak pernah lagi menimpa setting terbaru"
   ],
   "changed": [
-    "Seluruh fitur portingan telah diaudit live — endpoint/API pihak ketiga yang mati (404/500/timeout) tidak dimasukkan atau diganti ke sumber resmi yang aktif agar tidak ada fitur pajangan"
+    "Peningkatan stabilitas koneksi Baileys ke server WhatsApp (keepAlive 20s, WebSocket ping liveness watchdog 45s, jittered reconnect backoff, pembersihan socket/listener lama sebelum reconnect) dan optimasi agresif penggunaan RAM di Bot Utama maupun Jadibot (pruning berkala store.messages, sentMessageCache, dan auto-clean ./tmp)"
   ]
 }

@@ -17,6 +17,7 @@ const { Boom } = require('@hapi/boom');
 const { MessagesUpsert, Solving } = require('../core/message');
 const botCtx = require('../core/context');
 const sessionSync = require('../services/session-sync');
+const antiDelCall = require('../services/antidelete-anticall');
 const { beautifyLegacyCaption } = require('../utils/formatter');
 
 const SESSION_ROOT = path.join(process.cwd(), 'jadibot-session');
@@ -582,9 +583,9 @@ async function startJadibot(number, opts = {}) {
         const groupCache = new NodeCache({ stdTTL: 300, checkperiod: 120, useClones: false });
         const staleGroupCache = new Map();
         const inflightGroupMeta = new Map();
-        const sentMessageCache = new NodeCache({ stdTTL: 21600, checkperiod: 300, maxKeys: 2000, useClones: false });
+        const sentMessageCache = new NodeCache({ stdTTL: 3600, checkperiod: 180, maxKeys: 500, useClones: false });
         const msgRetryCounterCache = new NodeCache({ stdTTL: 1800, checkperiod: 180, useClones: false });
-        const userDevicesCache = new NodeCache({ stdTTL: 600, checkperiod: 120, useClones: false });
+        const userDevicesCache = new NodeCache({ stdTTL: 600, checkperiod: 120, maxKeys: 800, useClones: false });
 
         const Dinz = makeWASocket({
             version,
@@ -593,6 +594,10 @@ async function startJadibot(number, opts = {}) {
             auth: state,
             browser: ['Ubuntu', 'Chrome', '22.04.2'],
             generateHighQualityLinkPreview: false,
+            markOnlineOnConnect: false,
+            syncFullHistory: false,
+            retryRequestDelayMs: 350,
+            maxMsgRetryCount: 4,
             msgRetryCounterCache,
             userDevicesCache,
             getMessage: async (key) => {
@@ -839,6 +844,34 @@ async function startJadibot(number, opts = {}) {
                 console.error(`[Jadibot ${number}] messages error:`, err.message);
             }
         });
+
+        Dinz.ev.on('messages.update', (updates) => {
+            botCtx.runWithBotContext(Dinz, () => antiDelCall.handleMessagesUpdateForAntiDelete(Dinz, updates)).catch(() => {});
+        });
+
+        Dinz.ev.on('call', (calls) => {
+            botCtx.runWithBotContext(Dinz, () => antiDelCall.handleIncomingCalls(Dinz, calls)).catch(() => {});
+        });
+
+        // Optimasi RAM Jadibot: bersihkan store.messages secara berkala agar multi-cloner tetap ringan
+        const jbPruneTimer = setInterval(() => {
+            try {
+                if (!instances.has(number)) { clearInterval(jbPruneTimer); return; }
+                if (!store?.messages) return;
+                const jids = Object.keys(store.messages);
+                if (jids.length > 120) {
+                    for (const oldJid of jids.slice(0, jids.length - 120)) delete store.messages[oldJid];
+                }
+                for (const jid of Object.keys(store.messages)) {
+                    const dict = store.messages[jid];
+                    if (dict?.array && dict.array.length > 40) {
+                        const rmList = dict.array.splice(0, dict.array.length - 40);
+                        if (dict.dict) for (const rm of rmList) if (rm?.key?.id) delete dict.dict[rm.key.id];
+                    }
+                }
+            } catch (_) {}
+        }, 5 * 60 * 1000);
+        if (typeof jbPruneTimer.unref === 'function') jbPruneTimer.unref();
 
         try {
             require('../services/presence').attachPresenceListener(Dinz);

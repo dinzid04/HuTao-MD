@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Poker Live</title>
+<style>
+:root{--bg:#0f1115;--card:#181b22;--card2:#20242d;--ink:#fff;--soft:#a3aab8;--line:#2b303b;--acc:#22c55e;--red:#ef4444;--warn:#f59e0b;--sys:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{background:transparent;color:var(--ink);font-family:var(--sys);min-height:100vh;overflow-x:hidden;-webkit-font-smoothing:antialiased}
+.stage{display:flex;justify-content:center;padding:14px 10px}
+.app{width:100%;max-width:380px;border-radius:16px;overflow:hidden;background:linear-gradient(180deg,#232733 0%,#171a21 30%,var(--bg) 70%);box-shadow:0 18px 40px rgba(0,0,0,.55);padding:14px 12px 12px}
+.top{display:flex;align-items:center;gap:9px;margin-bottom:12px}
+.logo{width:32px;height:32px;border-radius:9px;background:#1b1f2a;flex:none;display:flex;align-items:center;justify-content:center}
+.meta{flex:1;min-width:0}.title{font-size:14px;font-weight:800}.sub{font-size:10.5px;color:var(--soft);margin-top:2px}
+.chips{display:flex;gap:6px;margin-bottom:10px}
+.chip{flex:1;border:1px solid var(--line);background:var(--card);color:var(--soft);border-radius:20px;padding:6px 0;font-size:12px;font-weight:700;cursor:pointer}
+.chip.on{background:var(--acc);border-color:var(--acc);color:#04130a}
+.seats{display:flex;gap:6px;margin-bottom:8px}
+.seat{flex:1;min-width:0;background:var(--card);border:1.5px solid var(--line);border-radius:12px;padding:7px 4px 6px;text-align:center;position:relative;transition:.2s}
+.seat.act{border-color:var(--acc);box-shadow:0 0 0 3px rgba(34,197,94,.14)}
+.seat.fold{opacity:.42}.seat.out{opacity:.25}
+.seat .av{width:34px;height:34px;display:block;margin:0 auto 2px}
+.seat .n{font-size:10.5px;font-weight:700;color:var(--soft)}
+.seat .ch{font-size:12.5px;font-weight:800;display:flex;align-items:center;justify-content:center;gap:3px}
+.seat .ch svg{width:11px;height:11px}
+.seat .hc{display:flex;justify-content:center;gap:2px;margin-top:4px;height:36px}
+.seat .hc svg{width:26px;height:36px;filter:drop-shadow(0 2px 3px rgba(0,0,0,.5))}
+.seat .tag{font-size:9px;font-weight:800;margin-top:3px;min-height:12px;color:var(--warn)}
+.seat .dl{position:absolute;top:4px;right:4px;width:15px;height:15px;border-radius:50%;background:#fbc02d;color:#1b1b1f;font-size:9px;font-weight:900;display:flex;align-items:center;justify-content:center}
+.felt{background:radial-gradient(ellipse at 50% 35%,#1e7a4e 0%,#135437 65%,#0d3b26 100%);border:5px solid #3a2616;border-radius:60px / 44px;padding:12px 8px 10px;margin-bottom:8px;box-shadow:inset 0 0 22px rgba(0,0,0,.45),0 6px 14px rgba(0,0,0,.4);text-align:center}
+.pot{display:inline-flex;align-items:center;gap:6px;background:rgba(0,0,0,.35);border-radius:20px;padding:4px 12px;font-size:12px;font-weight:800;margin-bottom:8px}
+.pot svg{width:14px;height:14px}
+.pot small{font-size:10px;color:#bfe9cf;font-weight:700;margin-left:4px}
+.board{display:flex;justify-content:center;gap:5px}
+.board .sl{width:50px;height:70px;border-radius:7px;border:1.5px dashed rgba(255,255,255,.22)}
+.board svg{width:50px;height:70px;display:block;filter:drop-shadow(0 3px 5px rgba(0,0,0,.5));animation:deal .3s ease-out}
+@keyframes deal{from{transform:translateY(-14px) scale(.85);opacity:0}to{transform:none;opacity:1}}
+.me{background:var(--card);border:1.5px solid var(--line);border-radius:12px;padding:8px 10px;display:flex;align-items:center;gap:10px;margin-bottom:8px;transition:.2s;position:relative}
+.me.act{border-color:var(--acc);box-shadow:0 0 0 3px rgba(34,197,94,.14)}
+.me.fold{opacity:.5}
+.me .cards{display:flex;gap:5px}
+.me .cards svg{width:54px;height:76px;filter:drop-shadow(0 3px 5px rgba(0,0,0,.5));animation:deal .3s ease-out}
+.me .info{flex:1;min-width:0}
+.me .n{font-size:11px;color:var(--soft);font-weight:700}
+.me .ch{font-size:18px;font-weight:800;display:flex;align-items:center;gap:5px}.me .ch svg{width:15px;height:15px}
+.me .hd{font-size:11px;font-weight:800;color:var(--warn);margin-top:2px;min-height:14px}
+.me .dl{position:absolute;top:6px;right:8px;width:17px;height:17px;border-radius:50%;background:#fbc02d;color:#1b1b1f;font-size:10px;font-weight:900;display:flex;align-items:center;justify-content:center}
+.msg{min-height:34px;display:flex;align-items:center;justify-content:center;text-align:center;font-size:12.5px;font-weight:700;color:var(--soft);padding:0 6px 6px;line-height:1.3}
+.msg.win{color:var(--acc)}.msg.lose{color:var(--red)}
+.row{display:flex;gap:8px}
+.btn{flex:1;border:0;border-radius:10px;padding:11px 6px;font-size:13px;font-weight:800;cursor:pointer;background:var(--acc);color:#04130a}
+.btn.alt{background:var(--card2);color:var(--ink);border:1px solid var(--line)}
+.btn.red{background:var(--red);color:#fff}
+.btn[disabled]{opacity:.35}
+.rz{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px;margin-top:8px}
+.rz .q{display:flex;gap:6px;margin-bottom:8px}
+.rz .q button{flex:1;border:1px solid var(--line);background:var(--card2);color:var(--ink);border-radius:8px;padding:6px 0;font-size:11px;font-weight:800;cursor:pointer}
+.rz input{width:100%;accent-color:var(--acc);margin-bottom:8px}
+.stat{display:flex;justify-content:center;gap:14px;margin-top:10px;font-size:11px;color:var(--soft)}.stat b{color:var(--ink)}
+.cr{text-align:center;margin-top:10px;font-size:10px;color:#6b7280;letter-spacing:.3px}.cr b{color:#9aa3b2}
+.hide{display:none!important}
+</style></head><body>
+<div class="stage"><div class="app">
+  <div class="top">
+    <div class="logo"><svg width="22" height="22" viewBox="0 0 24 24"><use href="#s0" fill="#fff"/></svg></div>
+    <div class="meta"><div class="title">Poker Live</div><div class="sub" id="sub">Texas Hold'em • blind 10/20 • modal 1000</div></div>
+  </div>
+  <div class="chips" id="np"><button class="chip" data-n="1">1 Bot</button><button class="chip" data-n="2">2 Bot</button><button class="chip on" data-n="3">3 Bot</button></div>
+  <div class="seats" id="seats"></div>
+  <div class="felt"><div class="pot"><svg><use href="#chip"/></svg><span id="pot">0</span><small id="ph">Pre-Flop</small></div><div class="board" id="bd"></div></div>
+  <div class="me" id="me"></div>
+  <div class="msg" id="msg"></div>
+  <div class="row" id="acts"><button class="btn red" id="fd">Fold</button><button class="btn" id="cc">Check</button><button class="btn alt" id="rz">Raise</button></div>
+  <div class="row hide" id="nxr"><button class="btn" id="nx">Tangan Berikutnya</button></div>
+  <div class="rz hide" id="rzp"><div class="q"><button data-k="min">Min</button><button data-k="half">½ Pot</button><button data-k="pot">Pot</button><button data-k="all">All-in</button></div><input type="range" id="rg"><button class="btn" id="rgo" style="width:100%">Raise</button></div>
+  <div class="row" style="margin-top:8px"><button class="btn alt" id="rs">Main Ulang</button></div>
+  <div class="stat"><span>Menang <b id="w">0</b></span><span>Kalah <b id="l">0</b></span><span>Tangan menang <b id="hw">0</b></span></div>
+  <div class="cr">Create By <b>DinzID</b></div>
+</div></div>
+
+<svg width="0" height="0" style="position:absolute"><defs>
+  <symbol id="s0" viewBox="0 0 24 24"><path d="M12 1.5C12 1.5 3 9 3 14.2c0 2.6 2 4.3 4.2 4.3 1.7 0 3-.8 3.8-2-.2 2-1 3.5-2.4 5h6.8c-1.4-1.5-2.2-3-2.4-5 .8 1.2 2.1 2 3.8 2 2.2 0 4.2-1.7 4.2-4.3C21 9 12 1.5 12 1.5z"/></symbol>
+  <symbol id="s1" viewBox="0 0 24 24"><path d="M12 21.5C3 14.5 1.5 9 1.5 6.8 1.5 3.8 3.8 2 6.4 2c2.2 0 4.2 1.2 5.6 3.4C13.4 3.2 15.4 2 17.6 2c2.6 0 4.9 1.8 4.9 4.8 0 2.2-1.5 7.7-10.5 14.7z"/></symbol>
+  <symbol id="s2" viewBox="0 0 24 24"><path d="M12 1.5 21 12 12 22.5 3 12z"/></symbol>
+  <symbol id="s3" viewBox="0 0 24 24"><circle cx="12" cy="6.6" r="4.7"/><circle cx="6.2" cy="14" r="4.7"/><circle cx="17.8" cy="14" r="4.7"/><path d="M12 11.5l-3 11h6z"/></symbol>
+  <symbol id="chip" viewBox="0 0 20 20"><circle cx="10" cy="10" r="9" fill="#d62839"/><circle cx="10" cy="10" r="9" fill="none" stroke="#fff" stroke-width="2.4" stroke-dasharray="3.4 3.4"/><circle cx="10" cy="10" r="5" fill="#fff" opacity=".9"/><circle cx="10" cy="10" r="3.4" fill="#d62839"/></symbol>
+</defs></svg>
+
+<script>
+(function(){
+const $=id=>document.getElementById(id);
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const RK=['2','3','4','5','6','7','8','9','10','J','Q','K','A'];
+const HN=['Kartu Tertinggi','Sepasang','Dua Pasang','Tiga Sama','Straight','Flush','Full House','Empat Sama','Straight Flush'];
+const BOT=[['Rafi','#3b82f6',1.0],['Sinta','#ec4899',1.25],['Dimas','#f59e0b',.85]];
+const SB=10,BB=20,STACK=1000;
+
+/* ---------- kartu ---------- */
+const red=c=>c.s===1||c.s===2;
+function cardSVG(c){
+  const col=red(c)?'#d62839':'#1b1f2a',t=RK[c.r],fs=t==='10'?13:16;
+  const cor=`<text x="${t==='10'?4:7}" y="17" font-size="${fs}" font-weight="800" fill="${col}" font-family="Arial,sans-serif">${t}</text><use href="#s${c.s}" x="6" y="20" width="11" height="11" fill="${col}"/>`;
+  return `<svg viewBox="0 0 60 84"><rect x=".8" y=".8" width="58.4" height="82.4" rx="7" fill="#fff" stroke="rgba(0,0,0,.22)"/>${cor}<g transform="rotate(180 30 42)">${cor}</g><use href="#s${c.s}" x="15" y="27" width="30" height="30" fill="${col}"/></svg>`}
+const BACK=`<svg viewBox="0 0 60 84"><rect x=".8" y=".8" width="58.4" height="82.4" rx="7" fill="#fff"/><rect x="4" y="4" width="52" height="76" rx="4.5" fill="#1d3a8a"/><rect x="7.5" y="7.5" width="45" height="69" rx="3" fill="none" stroke="#fff" stroke-opacity=".5"/><path d="M30 20 44 42 30 64 16 42z" fill="#2c54c4" stroke="#fff" stroke-opacity=".6"/><circle cx="30" cy="42" r="4" fill="#fff" opacity=".8"/></svg>`;
+function avatar(c){return `<svg class="av" viewBox="0 0 36 36"><circle cx="18" cy="18" r="17" fill="${c}"/><circle cx="18" cy="15" r="6.2" fill="#f2d3b3"/><path d="M11.4 13.6c.2-4 3-6.2 6.8-6.2s6.4 2.2 6.8 6.2c-2.2-1.8-4.6-2.4-6.8-2.4s-4.6.6-6.8 2.4z" fill="#2a2018"/><path d="M5.6 31c1.6-6 6.6-8.4 12.4-8.4S28.8 25 30.4 31" fill="#1b1f2a"/><circle cx="15.8" cy="15.4" r=".9" fill="#1b1f2a"/><circle cx="20.2" cy="15.4" r=".9" fill="#1b1f2a"/></svg>`}
+const meAv=avatar('#22c55e').replace('class="av"','width="40" height="40"');
+
+/* ---------- evaluasi ---------- */
+function ev5(cs){const r=cs.map(c=>c.r).sort((a,b)=>b-a),fl=cs.every(c=>c.s===cs[0].s),u=[...new Set(r)];let hi=-1;
+  if(u.length===5){if(r[0]-r[4]===4)hi=r[0];else if(r[0]===12&&r[1]===3&&r[4]===0)hi=3}
+  const cnt={};r.forEach(x=>{cnt[x]=(cnt[x]||0)+1});const g=Object.entries(cnt).map(([a,b])=>[b,+a]).sort((a,b)=>b[0]-a[0]||b[1]-a[1]),tb=g.map(x=>x[1]);
+  if(hi>=0&&fl)return[8,hi];if(g[0][0]===4)return[7,...tb];if(g[0][0]===3&&g[1][0]===2)return[6,...tb];if(fl)return[5,...r];if(hi>=0)return[4,hi];
+  if(g[0][0]===3)return[3,...tb];if(g[0][0]===2&&g[1][0]===2)return[2,...tb];if(g[0][0]===2)return[1,...tb];return[0,...r]}
+function cmp(a,b){for(let i=0;i<Math.max(a.length,b.length);i++){const d=(a[i]===undefined?-1:a[i])-(b[i]===undefined?-1:b[i]);if(d)return d}return 0}
+function best(cs){const n=cs.length;if(n===5)return ev5(cs);let b=null;
+  if(n===6){for(let i=0;i<6;i++){const v=ev5(cs.filter((_,k)=>k!==i));if(!b||cmp(v,b)>0)b=v}return b}
+  for(let i=0;i<6;i++)for(let j=i+1;j<7;j++){const v=ev5(cs.filter((_,k)=>k!==i&&k!==j));if(!b||cmp(v,b)>0)b=v}return b}
+const hName=v=>v[0]===8&&v[1]===12?'Royal Flush':HN[v[0]];
+
+/* ---------- state ---------- */
+let P,deck,board,bet,minR,phase,dealer,cur,gid=0,nb=3,hum=false,ended=false,fin=false,raises=0,st={w:0,l:0,h:0};
+try{st=Object.assign(st,JSON.parse(localStorage.getItem('yt_poker')||'{}'))}catch(e){}
+const sv=()=>{try{localStorage.setItem('yt_poker',JSON.stringify(st))}catch(e){}};
+const PH=['Pre-Flop','Flop','Turn','River','Showdown'];
+const pot=()=>P.reduce((a,p)=>a+p.tot,0);
+const live=()=>P.filter(p=>!p.fold);
+const canAct=p=>!p.fold&&!p.allin&&p.chips>0;
+const nextI=(i,f)=>{for(let k=1;k<=P.length;k++){const j=(i+k)%P.length;if(f(P[j]))return j}return -1};
+function msg(t,c){const m=$('msg');m.textContent=t;m.className='msg'+(c?' '+c:'')}
+function newDeck(){const d=[];for(let r=0;r<13;r++)for(let s=0;s<4;s++)d.push({r,s});for(let i=d.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[d[i],d[j]]=[d[j],d[i]]}return d}
+
+function init(){
+  gid++;P=[{n:'Kamu',chips:STACK,bot:false}];for(let i=0;i<nb;i++)P.push({n:BOT[i][0],c:BOT[i][1],agg:BOT[i][2],chips:STACK,bot:true});
+  dealer=P.length-1;fin=false;$('sub').textContent=`Texas Hold'em • blind ${SB}/${BB} • modal ${STACK}`;newHand()}
+
+function post(p,a){a=Math.min(a,p.chips);p.chips-=a;p.bet+=a;p.tot+=a;if(!p.chips)p.allin=true;return a}
+
+function newHand(){
+  ended=false;hum=false;raises=0;
+  const alive=P.filter(p=>p.chips>0);
+  if(P[0].chips<=0){fin=true;st.l++;sv();render();msg('Kamu bangkrut. Game selesai!','lose');return ctl()}
+  if(alive.length===1){fin=true;st.w++;sv();render();msg('🏆 Semua bot bangkrut — kamu juara!','win');return ctl()}
+  deck=newDeck();board=[];bet=0;phase=0;
+  P.forEach(p=>{p.hole=[];p.bet=0;p.tot=0;p.allin=false;p.acted=false;p.fold=p.chips<=0;p.show=false;p.tag=''});
+  dealer=nextI(dealer,p=>p.chips>0);
+  P.forEach(p=>{if(!p.fold)p.hole=[deck.pop(),deck.pop()]});
+  const sb=alive.length===2?dealer:nextI(dealer,p=>p.chips>0),bb=nextI(sb,p=>p.chips>0);
+  post(P[sb],SB);post(P[bb],BB);bet=BB;minR=BB;
+  cur=nextI(bb,canAct);
+  msg(`Tangan baru • ${P[sb].n} blind ${SB}, ${P[bb].n} blind ${BB}`);render();ctl();
+  const g=gid;setTimeout(()=>{if(g===gid)step(g)},900)}
+
+/* ---------- alur ---------- */
+const roundDone=()=>{if(live().length<2)return true;const need=P.filter(canAct);if(need.length<2&&need.every(p=>p.bet>=bet))return true;return need.every(p=>p.acted&&p.bet===bet)};
+async function step(g){
+  if(g!==gid||ended)return;
+  if(live().length===1)return finish(g);
+  if(roundDone())return nextPhase(g);
+  const p=P[cur];
+  if(!canAct(p)){cur=nextI(cur,canAct);return step(g)}
+  if(p.bot){render();await sleep(1000);if(g!==gid||ended)return;botAct(p,g)}else{hum=true;render();ctl();
+    const tc=bet-p.bet;msg(tc>0?`Giliranmu — bayar ${Math.min(tc,p.chips)} untuk lanjut`:'Giliranmu — check atau bet')}}
+
+function act(p,type,to,g){
+  let t='';
+  if(type==='fold'){p.fold=true;t=`${p.n} fold`}
+  else if(type==='call'){const a=post(p,bet-p.bet);t=a?`${p.n} ${p.allin?'all-in':'call'} ${a}`:`${p.n} check`}
+  else{const total=Math.min(to,p.chips+p.bet),add=total-p.bet;post(p,add);const full=p.bet-bet>=minR;
+    if(p.bet>bet){if(full)minR=p.bet-bet;t=`${p.n} ${bet?'raise ke':'bet'} ${p.bet}${p.allin?' (all-in)':''}`;bet=p.bet;raises++;P.forEach(o=>{if(o!==p&&canAct(o))o.acted=false})}
+    else t=`${p.n} call ${add}${p.allin?' (all-in)':''}`}
+  p.acted=true;p.tag=type==='fold'?'FOLD':p.allin?'ALL-IN':'';hum=false;msg(t);
+  cur=nextI(P.indexOf(p),canAct);if(cur<0)cur=P.indexOf(p);
+  render();ctl();setTimeout(()=>step(g),p.bot?650:450)}
+
+async function nextPhase(g){
+  P.forEach(p=>{p.bet=0;p.acted=false});bet=0;minR=BB;raises=0;phase++;
+  if(phase>=4)return showdown(g);
+  await sleep(500);if(g!==gid)return;
+  if(phase===1)board.push(deck.pop(),deck.pop(),deck.pop());else board.push(deck.pop());
+  cur=nextI(dealer,canAct);msg(`${PH[phase]} dibuka`);render();ctl();
+  setTimeout(()=>step(g),P.filter(canAct).length<2?1100:700)}
+
+/* ---------- bot ---------- */
+function equity(p,k,n){
+  const used=new Set(p.hole.concat(board).map(c=>c.r*4+c.s)),pool=[];
+  for(let r=0;r<13;r++)for(let s=0;s<4;s++)if(!used.has(r*4+s))pool.push({r,s});
+  let w=0;const need=5-board.length+2*k;
+  for(let t=0;t<n;t++){
+    for(let i=0;i<need;i++){const j=i+Math.floor(Math.random()*(pool.length-i));[pool[i],pool[j]]=[pool[j],pool[i]]}
+    const bd=board.concat(pool.slice(0,5-board.length)),my=best(p.hole.concat(bd));let lose=false,ties=0;
+    for(let o=0;o<k;o++){const h=pool.slice(5-board.length+2*o,5-board.length+2*o+2),v=best(h.concat(bd)),c=cmp(my,v);if(c<0){lose=true;break}if(c===0)ties++}
+    if(!lose)w+=1/(ties+1)}
+  return w/n}
+function botAct(p,g){
+  const k=live().length-1,tc=bet-p.bet,eq=equity(p,k,110),str=eq*(k+1),po=tc/(pot()+tc||1),r=Math.random();
+  const cap=p.chips+p.bet;
+  const raiseTo=()=>{let a=bet+Math.max(minR,Math.round(pot()*(.4+.5*Math.random())/10)*10);return Math.min(a,cap)};
+  if(tc===0){
+    if(raises<3&&(str>1.7/p.agg&&r<.8||r<.05*p.agg))return act(p,'raise',raiseTo(),g);
+    return act(p,'call',0,g)}
+  if(raises<3&&str>2.1/p.agg&&r<.7&&p.chips>tc)return act(p,'raise',raiseTo(),g);
+  if(eq>po*1.08||(tc<=BB&&eq>.28)||r<.04)return act(p,'call',0,g);
+  act(p,'fold',0,g)}
+
+/* ---------- akhir tangan ---------- */
+function award(winners,amt){const sh=Math.floor(amt/winners.length);winners.forEach(w=>{w.chips+=sh});winners[0].chips+=amt-sh*winners.length}
+function finish(g){
+  const w=live()[0],a=pot();w.chips+=a;ended=true;hum=false;
+  msg(`${w.n} menang ${a} — semua lawan fold`,w===P[0]?'win':'');if(w===P[0]){st.h++;sv()}
+  P.forEach(p=>{p.bet=0});render();ctl()}
+function showdown(g){
+  ended=true;hum=false;const al=live();al.forEach(p=>{p.show=true;p.val=best(p.hole.concat(board))});
+  const lv=[...new Set(P.filter(p=>p.tot>0).map(p=>p.tot))].sort((a,b)=>a-b);let prev=0;const won={};
+  for(const L of lv){let amt=0;P.forEach(p=>{amt+=Math.max(0,Math.min(p.tot,L)-prev)});
+    let el=al.filter(p=>p.tot>=L);if(!el.length){prev=L;continue}
+    let bv=el[0].val;el.forEach(p=>{if(cmp(p.val,bv)>0)bv=p.val});const ws=el.filter(p=>cmp(p.val,bv)===0);
+    award(ws,amt);ws.forEach(w=>{won[w.n]=(won[w.n]||0)+Math.floor(amt/ws.length)});prev=L}
+  const names=Object.keys(won),top=al.filter(p=>won[p.n]);
+  const hv=top[0]?hName(top[0].val):'';
+  const me=P[0];
+  if(won[me.n]){st.h++;sv();msg(`🏆 Kamu menang ${won[me.n]} dengan ${hName(me.val)}!`,'win')}
+  else msg(`${names.join(' & ')} menang dengan ${hv}`,me.fold?'':'lose');
+  P.forEach(p=>{p.bet=0});render();ctl()}
+
+/* ---------- tampilan ---------- */
+function render(){
+  $('seats').innerHTML=P.slice(1).map((p,i)=>{const idx=i+1,sh=p.show&&!p.fold;
+    const cards=p.hole&&p.hole.length?(sh?p.hole.map(cardSVG).join(''):BACK+BACK):'';
+    return `<div class="seat${cur===idx&&!ended&&!fin?' act':''}${p.fold&&p.chips>0?' fold':''}${p.chips<=0&&!(p.hole&&p.hole.length)?' out':''}">${dealer===idx?'<div class="dl">D</div>':''}${avatar(p.c)}<div class="n">${p.n}</div><div class="ch"><svg><use href="#chip"/></svg>${p.chips}</div><div class="hc">${p.fold?'':cards}</div><div class="tag">${p.chips<=0&&!p.hole.length?'BANGKRUT':(p.bet?'Bet '+p.bet+(p.tag?' • ':''):'')+(p.tag||'')}</div></div>`}).join('');
+  $('pot').textContent=pot();$('ph').textContent=PH[Math.min(phase,4)];
+  let b='';for(let i=0;i<5;i++)b+=board[i]?cardSVG(board[i]):'<div class="sl"></div>';$('bd').innerHTML=b;
+  const me=P[0],hl=me.hole&&me.hole.length;
+  let hd='';if(hl&&!me.fold&&board.length>=3)hd=hName(best(me.hole.concat(board)));else if(hl&&!me.fold)hd=me.hole[0].r===me.hole[1].r?'Pasangan di tangan':'';
+  $('me').className='me'+(hum&&!ended?' act':'')+(me.fold&&hl?' fold':'');
+  $('me').innerHTML=`${dealer===0?'<div class="dl">D</div>':''}<div class="cards">${hl?me.hole.map(cardSVG).join(''):''}</div><div class="info"><div class="n">KAMU</div><div class="ch"><svg><use href="#chip"/></svg>${me.chips}</div><div class="hd">${me.fold&&hl?'FOLD':me.allin?'ALL-IN':hd}${me.bet&&!me.fold?' • Bet '+me.bet:''}</div></div>`;
+  $('w').textContent=st.w;$('l').textContent=st.l;$('hw').textContent=st.h}
+
+function ctl(){
+  const me=P[0],tc=bet-me.bet,can=hum&&!ended&&!fin;
+  $('acts').classList.toggle('hide',ended||fin);$('nxr').classList.toggle('hide',!(ended&&!fin));
+  $('fd').disabled=!can;$('cc').disabled=!can;
+  $('cc').textContent=tc<=0?'Check':(tc>=me.chips?`All-in ${me.chips}`:`Call ${tc}`);
+  const rok=can&&me.chips>tc;$('rz').disabled=!rok;$('rz').textContent=bet?'Raise':'Bet';
+  if(!rok)$('rzp').classList.add('hide');
+  if(rok){const mn=Math.min(bet+minR,me.chips+me.bet),mx=me.chips+me.bet,g=$('rg');g.min=mn;g.max=mx;g.step=mn===mx?1:5;if(+g.value<mn||+g.value>mx)g.value=mn;upd()}}
+function upd(){const g=$('rg');$('rgo').textContent=(+g.value>=+g.max?'All-in ':(bet?'Raise ke ':'Bet '))+g.value}
+
+$('fd').onclick=()=>{if(hum&&!ended)act(P[0],'fold',0,gid)};
+$('cc').onclick=()=>{if(hum&&!ended)act(P[0],'call',0,gid)};
+$('rz').onclick=()=>{$('rzp').classList.toggle('hide');ctl()};
+$('rg').oninput=upd;
+$('rzp').addEventListener('click',e=>{const k=e.target.dataset&&e.target.dataset.k;if(!k)return;const g=$('rg'),me=P[0];
+  const v={min:+g.min,half:bet+Math.round(pot()/2),pot:bet+pot(),all:+g.max}[k];g.value=Math.max(+g.min,Math.min(+g.max,Math.round(v/5)*5));upd()});
+$('rgo').onclick=()=>{if(!hum||ended)return;$('rzp').classList.add('hide');act(P[0],'raise',+$('rg').value,gid)};
+$('nx').onclick=newHand;
+$('rs').onclick=init;
+$('np').addEventListener('click',e=>{const n=e.target.dataset&&e.target.dataset.n;if(!n)return;nb=+n;[].forEach.call($('np').children,x=>x.classList.toggle('on',x===e.target));init()});
+init();
+})();
+</script>
+</body></html>

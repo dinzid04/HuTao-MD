@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Ludo Live</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{background:transparent;font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#2b2a27;-webkit-font-smoothing:antialiased}
+.app{max-width:380px;margin:10px auto;background:#f3eee3;border:1px solid #d7cfbd;border-radius:14px;padding:12px}
+.hd{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.hd b{font:700 21px Georgia,serif}
+.pl{display:flex;gap:8px;font-size:11.5px}
+.pl span{display:flex;align-items:center;gap:5px;padding:4px 9px;border-radius:20px;background:#e7dfcd}
+.pl span.on{outline:2px solid #2b2a27}
+.pl i{width:10px;height:10px;border-radius:50%;display:block}
+svg{display:block;width:100%;height:auto}
+.tk{cursor:default}.tk.go{cursor:pointer}
+.ring{fill:none;stroke:#2b2a27;stroke-width:1.6;stroke-dasharray:3 2.5;animation:sp 3s linear infinite;transform-origin:center;transform-box:fill-box}
+@keyframes sp{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){.ring{animation:none}}
+.bar{display:flex;align-items:center;gap:12px;margin-top:12px}
+#die{flex:none}
+#msg{flex:1;font-size:12.5px;line-height:1.4;min-height:36px}
+button{font-family:inherit;font-weight:700;font-size:13px;border:0;border-radius:8px;padding:11px 16px;background:#2b2a27;color:#f3eee3;cursor:pointer}
+button:disabled{opacity:.35}
+.cr{margin-top:12px;text-align:center;font-size:10.5px;color:#8a8372}
+</style></head><body>
+<div class="app">
+ <div class="hd"><b>Ludo</b><div class="pl"><span id="p0"><i style="background:#d8574f"></i>Kamu <em id="f0">0</em>/4</span><span id="p1"><i style="background:#e2b940"></i>Bot <em id="f1">0</em>/4</span></div></div>
+ <svg id="bd" viewBox="0 0 300 300"></svg>
+ <div class="bar"><svg id="die" width="48" height="48" viewBox="0 0 48 48"></svg><div id="msg"></div><button id="btn" onclick="humanRoll()">Lempar</button></div>
+ <div class="cr">Create By DinzID</div>
+</div>
+<script>
+const $=s=>document.getElementById(s),sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const PATH=[[1,6],[2,6],[3,6],[4,6],[5,6],[6,5],[6,4],[6,3],[6,2],[6,1],[6,0],[7,0],[8,0],[8,1],[8,2],[8,3],[8,4],[8,5],[9,6],[10,6],[11,6],[12,6],[13,6],[14,6],[14,7],[14,8],[13,8],[12,8],[11,8],[10,8],[9,8],[8,9],[8,10],[8,11],[8,12],[8,13],[8,14],[7,14],[6,14],[6,13],[6,12],[6,11],[6,10],[6,9],[5,8],[4,8],[3,8],[2,8],[1,8],[0,8],[0,7],[0,6]];
+const C={r:'#d8574f',g:'#4f9d6e',y:'#e2b940',b:'#3f7fd6'},OFF={r:0,g:13,y:26,b:39},Q={r:[0,0],g:[9,0],y:[9,9],b:[0,9]};
+const HOME={r:[1,2,3,4,5].map(i=>[i,7]),g:[1,2,3,4,5].map(i=>[7,i]),y:[13,12,11,10,9].map(i=>[i,7]),b:[13,12,11,10,9].map(i=>[7,i])};
+const SAFE=[0,8,13,21,26,34,39,47],COL=['r','y'],NM=['Kamu','Bot'];
+const pp={1:[[.5,.5]],2:[[.28,.28],[.72,.72]],3:[[.28,.28],[.5,.5],[.72,.72]],4:[[.28,.28],[.72,.28],[.28,.72],[.72,.72]],5:[[.28,.28],[.72,.28],[.5,.5],[.28,.72],[.72,.72]],6:[[.3,.25],[.7,.25],[.3,.5],[.7,.5],[.3,.75],[.7,.75]]};
+let S={tk:[[-1,-1,-1,-1],[-1,-1,-1,-1]],turn:0,d:0,mv:[],busy:false,over:false,msg:'Lempar dadu. Butuh angka 6 untuk keluar kandang.'};
+const cell=(c,r)=>[(c+.5)*20,(r+.5)*20];
+function xy(w,i){
+  const c=COL[w],p=S.tk[w][i];
+  if(p<0)return[(Q[c][0]+2+2*(i%2))*20,(Q[c][1]+2+2*(i>>1))*20];
+  if(p==56)return[(7.5+(c=='r'?-.8:.8))*20,(7.5+(i-1.5)*.35)*20];
+  const [a,b]=p<=50?PATH[(OFF[c]+p)%52]:HOME[c][p-51];return cell(a,b);
+}
+function board(){
+  let s='<rect width="300" height="300" rx="6" fill="#faf6ec"/>';
+  for(const k in Q){const[x,y]=Q[k];s+=`<rect x="${x*20}" y="${y*20}" width="120" height="120" fill="${C[k]}"/><rect x="${(x+1)*20}" y="${(y+1)*20}" width="80" height="80" rx="10" fill="#faf6ec" fill-opacity=".92"/>`;
+    for(let i=0;i<4;i++)s+=`<circle cx="${(x+2+2*(i%2))*20}" cy="${(y+2+2*(i>>1))*20}" r="9" fill="${C[k]}" fill-opacity=".25"/>`}
+  PATH.forEach(([a,b],i)=>{const st=Object.keys(OFF).find(k=>OFF[k]==i);s+=`<rect x="${a*20+.5}" y="${b*20+.5}" width="19" height="19" fill="${st?C[st]:'#fff'}" stroke="#cfc6b1" stroke-width=".8"/>`;
+    if(SAFE.includes(i)&&!st)s+=star(...cell(a,b))});
+  for(const k in HOME)HOME[k].forEach(([a,b])=>s+=`<rect x="${a*20+.5}" y="${b*20+.5}" width="19" height="19" fill="${C[k]}" fill-opacity=".8" stroke="#cfc6b1" stroke-width=".8"/>`);
+  s+=`<polygon points="120,120 150,150 120,180" fill="${C.r}"/><polygon points="120,120 150,150 180,120" fill="${C.g}"/><polygon points="180,120 150,150 180,180" fill="${C.y}"/><polygon points="120,180 150,150 180,180" fill="${C.b}"/>`;
+  s+=`<g id="tks"></g>`;return s;
+}
+function star(x,y){let p=[];for(let i=0;i<10;i++){const r=i%2?2.6:6,a=Math.PI/5*i-Math.PI/2;p.push((x+r*Math.cos(a)).toFixed(1)+','+(y+r*Math.sin(a)).toFixed(1))}return`<polygon points="${p.join(' ')}" fill="#b9ae93"/>`}
+function tokens(){
+  const seen={};let s='';
+  [0,1].forEach(w=>S.tk[w].forEach((p,i)=>{
+    let[x,y]=xy(w,i);const key=Math.round(x)+','+Math.round(y);
+    if(p>=0&&p<56){const n=seen[key]=(seen[key]||0)+1;x+=(n-1)*4;y-=(n-1)*4}
+    const go=S.turn==0&&S.mv.includes(i)&&w==0&&!S.busy;
+    s+=`<g class="tk ${go?'go':''}" ${go?`onclick="humanMove(${i})"`:''}>${go?`<circle class="ring" cx="${x}" cy="${y}" r="11.5"/>`:''}<circle cx="${x}" cy="${y}" r="7.5" fill="${C[COL[w]]}" stroke="#fff" stroke-width="2"/><circle cx="${x}" cy="${y}" r="2.4" fill="#fff" fill-opacity=".85"/></g>`}));
+  $('tks').innerHTML=s;
+}
+function die(n){let s='<rect x="2" y="2" width="44" height="44" rx="9" fill="#fff" stroke="#2b2a27" stroke-width="2"/>';(pp[n]||[]).forEach(([x,y])=>s+=`<circle cx="${x*48}" cy="${y*48}" r="3.6" fill="#2b2a27"/>`);$('die').innerHTML=s}
+function ui(){
+  [0,1].forEach(w=>{$('f'+w).textContent=S.tk[w].filter(p=>p==56).length;$('p'+w).className=S.turn==w&&!S.over?'on':''});
+  tokens();$('msg').textContent=S.msg;
+  $('btn').disabled=S.turn!=0||S.busy||S.mv.length>0&&S.d>0||S.over;
+  $('btn').textContent=S.over?'Selesai':'Lempar';
+}
+function movable(w,d){
+  const r=[];S.tk[w].forEach((p,i)=>{if(p<0?d==6:p+d<=56)r.push(i)});return r;
+}
+function apply(w,i,d){
+  const t=S.tk[w];t[i]=t[i]<0?0:t[i]+d;let cap=0;
+  if(t[i]<=50){
+    const a=(OFF[COL[w]]+t[i])%52;
+    if(!SAFE.includes(a))S.tk[1-w].forEach((p,j)=>{if(p>=0&&p<=50&&(OFF[COL[1-w]]+p)%52==a){S.tk[1-w][j]=-1;cap++}});
+  }
+  return{cap,fin:t[i]==56};
+}
+async function roll(){
+  S.busy=true;for(let k=0;k<7;k++){die(1+Math.floor(Math.random()*6));await sleep(70)}
+  S.d=1+Math.floor(Math.random()*6);die(S.d);S.busy=false;return S.d;
+}
+function after(w,r,d){
+  if(S.tk[w].every(p=>p==56)){S.over=true;S.msg=w==0?'Kamu menang! Semua bidak sudah sampai rumah.':'Bot menang. Coba lagi!';S.mv=[];ui();return true}
+  const extra=d==6||r.cap||r.fin;
+  S.mv=[];S.d=0;
+  if(!extra)S.turn=1-w;
+  S.msg=`${NM[w]} jalan ${d}${r.cap?`, memakan ${r.cap} bidak`:''}${r.fin?', satu bidak sampai rumah':''}.${extra?` ${NM[w]} dapat giliran lagi.`:''}`;
+  return false;
+}
+async function humanRoll(){
+  if(S.turn!=0||S.busy||S.over)return;
+  const d=await roll();S.mv=movable(0,d);
+  if(!S.mv.length){S.msg=`Dapat ${d}, tidak ada bidak yang bisa jalan.`;S.turn=1;S.mv=[];S.d=0;ui();return botTurn()}
+  if(S.mv.length==1)return humanMove(S.mv[0]);
+  S.msg=`Dapat ${d}. Pilih bidak yang bercincin.`;ui();
+}
+async function humanMove(i){
+  if(!S.mv.includes(i))return;
+  const d=S.d,r=apply(0,i,d);ui();
+  if(after(0,r,d))return;
+  ui();if(S.turn==1)botTurn();
+}
+let botRun=false;
+async function botTurn(){
+  if(botRun)return;botRun=true;
+  try{await botLoop()}finally{botRun=false}
+}
+async function botLoop(){
+  while(S.turn==1&&!S.over){
+    await sleep(900);ui();const d=await roll();const mv=movable(1,d);
+    if(!mv.length){S.msg=`Bot dapat ${d}, tidak bisa jalan.`;S.turn=0;S.d=0;ui();return}
+    const sc=i=>{const p=S.tk[1][i],np=p<0?0:p+d;let v=np;
+      if(np==56)v+=100;if(p<0)v+=40;
+      if(np<=50){const a=(26+np)%52;if(SAFE.includes(a))v+=15;
+        else if(S.tk[0].some(q=>q>=0&&q<=50&&(q)%52==a))v+=70}
+      return v};
+    mv.sort((a,b)=>sc(b)-sc(a));
+    const r=apply(1,mv[0],d);ui();await sleep(500);
+    if(after(1,r,d))return;
+    ui();
+  }
+}
+$('bd').innerHTML=board();die(1);ui();
+</script></body></html>

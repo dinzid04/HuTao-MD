@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
+<title>Hitung Cepat — HuTao - MD</title>
+<style>
+
+:root{
+  --bg:#091a1d;--card:#10292e;--card2:#173940;--ink:#f0fdfa;--soft:#99f6e4;
+  --line:#204f58;--acc:#14b8a6;--acc2:#0d9488;--warn:#fbbf24;--red:#ef4444;--blue:#3b82f6;
+  --sys:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{background:transparent;color:var(--ink);font-family:var(--sys);min-height:100vh;overflow-x:hidden;-webkit-font-smoothing:antialiased;}
+.stage{min-height:100vh;display:flex;align-items:flex-start;justify-content:center;padding:0;width:100%;}
+.app{
+  width:100%;max-width:100%;border-radius:14px;overflow:hidden;position:relative;
+  background:radial-gradient(circle at 85% 0%,rgba(20,184,166,.18) 0%,transparent 48%),
+             radial-gradient(circle at 10% 100%,rgba(245,158,11,.12) 0%,transparent 52%),
+             linear-gradient(180deg,#0e262b 0%,#091a1d 100%);
+  border:1px solid #204f58;
+  box-shadow:0 16px 36px rgba(0,0,0,.6);
+  padding:10px;
+}
+.top{display:flex;align-items:center;gap:9px;margin-bottom:10px;}
+.logo{
+  width:32px;height:32px;border-radius:10px;
+  background:linear-gradient(135deg,#14b8a6,#0d9488);
+  color:#042f2e;flex:none;display:flex;align-items:center;justify-content:center;
+  font-size:16px;
+}
+.meta{min-width:0;flex:1;}
+.title{font-size:14.5px;font-weight:800;letter-spacing:.2px;color:var(--ink);}
+.sub{font-size:10.5px;color:var(--soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px;}
+.chips{display:flex;gap:6px;overflow-x:auto;padding-bottom:8px;margin-bottom:8px;scrollbar-width:none;}
+.chips::-webkit-scrollbar{display:none;}
+.chip{flex:none;border:1px solid var(--line);background:var(--card);color:var(--soft);border-radius:20px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;}
+.chip.on{background:var(--acc);border-color:var(--acc);color:#042f2e;}
+.btn{border:0;border-radius:10px;padding:10px 12px;font-size:13px;font-weight:800;cursor:pointer;background:linear-gradient(135deg,#14b8a6,#0d9488);color:#042f2e;}
+.btn.alt{background:var(--card2);color:var(--ink);border:1px solid var(--line);}
+.btn.red{background:#ef4444;color:#fff;}
+.inp{width:100%;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px;color:var(--ink);font-size:14px;outline:none;font-family:var(--sys);}
+.inp:focus{border-color:var(--acc);}
+.box{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px;}
+.row{display:flex;gap:8px;align-items:center;}
+.muted{color:var(--soft);font-size:11px;}
+.hide{display:none!important;}
+
+.hud{display:flex;justify-content:space-between;gap:6px;margin-bottom:10px;}
+.stat{flex:1;background:var(--card);border:1px solid var(--line);border-radius:11px;padding:7px 8px;text-align:center;}
+.stat b{display:block;font-size:15px;color:#fff;}
+.stat span{font-size:10px;color:var(--soft);}
+canvas{display:block;width:100%;border-radius:13px;background:#0b0714;border:1px solid var(--line);touch-action:none;}
+.row{display:flex;gap:8px;margin-top:10px;}
+.row .btn{flex:1;}
+.qbox{background:var(--card);border:1px solid var(--line);border-radius:15px;padding:24px 12px;text-align:center;font-size:28px;font-weight:900;margin-bottom:10px;}
+.opts{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;}
+.opt{padding:14px;border-radius:12px;border:1px solid var(--line);background:var(--card2);color:#fff;font-size:18px;font-weight:800;cursor:pointer;}
+</style>
+</head>
+<body>
+<div class="stage"><div class="app">
+  <div class="top">
+    <div class="logo">🧮</div>
+    <div class="meta">
+      <div class="title">Hitung Cepat</div>
+      <div class="sub">Jawab hitungan secepat mungkin</div>
+    </div>
+  </div>
+  <div class="hud">
+    <div class="stat"><b id="sc">0</b><span>Skor</span></div>
+    <div class="stat"><b id="tm">60</b><span>Detik</span></div>
+    <div class="stat"><b id="cb">x1</b><span>Combo</span></div>
+  </div>
+  <div class="qbox" id="q">Tekan Mulai!</div>
+  <div class="opts" id="opts"></div>
+  <div class="row"><button class="btn" id="sbtn" onclick="start()">▶ Mulai 60 Detik</button></div>
+</div></div>
+<script>
+let sc=0,tm=60,cb=0,ans=0,tmr=null,on=false;
+const sbtn=document.getElementById('sbtn');
+function setOpts(en){document.querySelectorAll('.opt').forEach(b=>{b.disabled=!en;b.style.opacity=en?'1':'.4';});}
+function gen(){
+  const ops=['+','-','×'];const op=ops[Math.floor(Math.random()*ops.length)];
+  let a=Math.floor(Math.random()*20)+2,b=Math.floor(Math.random()*15)+2;
+  if(op==='×'){a=Math.floor(Math.random()*11)+2;b=Math.floor(Math.random()*10)+2;}
+  ans=op==='+'?a+b:op==='-'?a-b:a*b;
+  document.getElementById('q').textContent=`${a} ${op} ${b} = ?`;
+  const st=new Set([ans]);while(st.size<4)st.add(ans+Math.floor(Math.random()*13)-6);
+  document.getElementById('opts').innerHTML=[...st].sort(()=>Math.random()-.5).map(v=>`<button class="opt" onclick="pick(${v})">${v}</button>`).join('');
+  setOpts(on);
+}
+function pick(v){
+  if(!on)return;
+  if(v===ans){cb++;sc+=10*Math.min(5,cb);}else{cb=0;sc=Math.max(0,sc-5);}
+  document.getElementById('sc').textContent=sc;document.getElementById('cb').textContent='x'+Math.max(1,Math.min(5,cb));
+  gen();
+}
+function start(){
+  if(on)return;
+  clearInterval(tmr);
+  on=true;sc=0;tm=60;cb=0;
+  sbtn.disabled=true;sbtn.style.opacity='.45';sbtn.textContent='⏳ Sedang Bermain...';
+  document.getElementById('sc').textContent=0;document.getElementById('tm').textContent=60;document.getElementById('cb').textContent='x1';
+  gen();
+  tmr=setInterval(()=>{
+    tm--;document.getElementById('tm').textContent=tm;
+    if(tm<=0){
+      on=false;clearInterval(tmr);setOpts(false);
+      sbtn.disabled=false;sbtn.style.opacity='1';sbtn.textContent='↻ Main Lagi';
+      document.getElementById('q').textContent='Selesai! Skor: '+sc;
+    }
+  },1000);
+}
+gen();
+</script>
+</body>
+</html>

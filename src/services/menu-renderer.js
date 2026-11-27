@@ -113,6 +113,7 @@ const MENU_CATEGORIES = [
     { group: 'feature', title: 'Menu Alight Motion', emoji: '🎬', cmd: 'menu-am', desc: 'Alight Motion Auto Bulk & Reseller' },
     { group: 'feature', title: 'Menu Jpm', emoji: '📢', cmd: 'menu-jpm', desc: 'Broadcast & Push Kontak' },
     { group: 'feature', title: 'Menu Auto Join', emoji: '🚪', cmd: 'menu-join', desc: 'Auto Join Grup Otomatis' },
+    { group: 'feature', title: 'Menu Vercel', emoji: '▲', cmd: 'menu-vercel', desc: 'Instant Deploy Web HTML/ZIP & Custom Domain Vercel' },
     { group: 'feature', title: 'Menu Enc', emoji: '🔐', cmd: 'menu-enc', desc: 'Obfuscator & Enkripsi JS' }
 ];
 

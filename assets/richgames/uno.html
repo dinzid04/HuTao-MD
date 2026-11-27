@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>UNO Live</title>
+<style>
+:root{--bg:#0f1115;--card:#181b22;--card2:#20242d;--ink:#fff;--soft:#a3aab8;--line:#2b303b;--acc:#22c55e;--red:#ef4444;--warn:#f59e0b;--sys:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{background:transparent;color:var(--ink);font-family:var(--sys);min-height:100vh;overflow-x:hidden;-webkit-font-smoothing:antialiased}
+.stage{display:flex;justify-content:center;padding:14px 10px}
+.app{width:100%;max-width:380px;border-radius:16px;overflow:hidden;background:linear-gradient(180deg,#232733 0%,#171a21 30%,var(--bg) 70%);box-shadow:0 18px 40px rgba(0,0,0,.55);padding:14px 12px 12px}
+.top{display:flex;align-items:center;gap:9px;margin-bottom:12px}
+.logo{width:32px;height:32px;border-radius:9px;background:#e53935;flex:none;display:flex;align-items:center;justify-content:center}
+.meta{flex:1;min-width:0}.title{font-size:14px;font-weight:800}.sub{font-size:10.5px;color:var(--soft);margin-top:2px}
+.chips{display:flex;gap:6px;margin-bottom:10px}
+.chip{flex:1;border:1px solid var(--line);background:var(--card);color:var(--soft);border-radius:20px;padding:6px 0;font-size:12px;font-weight:700;cursor:pointer}
+.chip.on{background:var(--acc);border-color:var(--acc);color:#04130a}
+.opps{display:flex;gap:6px;margin-bottom:8px}
+.opp{flex:1;min-width:0;background:var(--card);border:1.5px solid var(--line);border-radius:12px;padding:7px 6px 6px;text-align:center;transition:.2s}
+.opp.act{border-color:var(--acc);box-shadow:0 0 0 3px rgba(34,197,94,.14)}
+.opp .av{width:36px;height:36px;margin:0 auto 3px;display:block}
+.opp .n{font-size:10.5px;font-weight:700;color:var(--soft)}
+.opp .c{display:flex;align-items:center;justify-content:center;gap:4px;margin-top:3px;font-size:13px;font-weight:800}
+.opp .c svg{width:14px;height:21px}
+.opp .u{color:var(--warn);font-size:10px;font-weight:800}
+.table{display:flex;align-items:center;justify-content:center;gap:16px;background:radial-gradient(ellipse at 50% 40%,#1d6b45 0%,#124a2f 70%,#0d3722 100%);border-radius:16px;padding:14px 10px;margin-bottom:8px;border:1px solid #0b2d1c;position:relative}
+.pile{width:66px;cursor:pointer;position:relative}
+.pile svg,.top svg{display:block;width:100%;height:auto;filter:drop-shadow(0 4px 5px rgba(0,0,0,.5))}
+.pile .lb{position:absolute;left:0;right:0;bottom:-15px;text-align:center;font-size:9.5px;font-weight:800;color:#bfe9cf;letter-spacing:.4px}
+.topc{width:74px;position:relative}
+.topc svg{display:block;width:100%;height:auto;filter:drop-shadow(0 5px 7px rgba(0,0,0,.55))}
+.topc.new{animation:drop .3s ease-out}
+@keyframes drop{0%{transform:translateY(-26px) rotate(-14deg) scale(1.15);opacity:0}100%{transform:none;opacity:1}}
+.side{display:flex;flex-direction:column;align-items:center;gap:6px;width:62px}
+.cdot{width:34px;height:34px;border-radius:50%;border:3px solid #fff;box-shadow:0 0 0 3px rgba(0,0,0,.25),0 0 14px var(--cc);background:var(--cc);transition:.25s}
+.cname{font-size:10px;font-weight:800;color:#d7f3e2}
+.dirs{width:30px;height:30px;transition:transform .35s}
+.pick{position:absolute;inset:0;border-radius:16px;background:rgba(8,16,12,.88);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;z-index:3}
+.pick b{font-size:12px}
+.pick div{display:flex;gap:10px}
+.pick button{width:46px;height:46px;border-radius:50%;border:3px solid #fff;cursor:pointer;box-shadow:0 4px 8px rgba(0,0,0,.4)}
+.msg{min-height:34px;display:flex;align-items:center;justify-content:center;text-align:center;font-size:12.5px;font-weight:700;color:var(--soft);padding:2px 6px 6px;line-height:1.3}
+.msg.win{color:var(--acc)}.msg.lose{color:var(--red)}
+.hand{display:flex;overflow-x:auto;padding:16px 6px 8px;min-height:112px;scrollbar-width:none}
+.hand::-webkit-scrollbar{display:none}
+.hc{flex:none;width:56px;margin-left:-17px;transition:transform .15s,opacity .15s;opacity:.5;cursor:default}
+.hc:first-child{margin-left:0}
+.hc svg{display:block;width:100%;height:auto;filter:drop-shadow(0 3px 4px rgba(0,0,0,.5))}
+.hc.ok{opacity:1;transform:translateY(-11px);cursor:pointer}
+.hc.ok:active{transform:translateY(-16px)}
+.row{display:flex;gap:8px;margin-top:4px}
+.btn{flex:1;border:0;border-radius:10px;padding:10px 8px;font-size:13px;font-weight:800;cursor:pointer;background:var(--acc);color:#04130a}
+.btn.alt{background:var(--card2);color:var(--ink);border:1px solid var(--line)}
+.btn.uno{background:#e53935;color:#fff;letter-spacing:.5px}
+.btn.uno.on{background:#fbc02d;color:#1b1b1f}
+.btn[disabled]{opacity:.4}
+.stat{display:flex;justify-content:center;gap:14px;margin-top:10px;font-size:11px;color:var(--soft)}.stat b{color:var(--ink)}
+.cr{text-align:center;margin-top:10px;font-size:10px;color:#6b7280;letter-spacing:.3px}.cr b{color:#9aa3b2}
+.hide{display:none!important}
+</style></head><body>
+<div class="stage"><div class="app">
+  <div class="top">
+    <div class="logo"><svg width="24" height="24" viewBox="0 0 24 24"><ellipse cx="12" cy="12" rx="7" ry="10.5" transform="rotate(28 12 12)" fill="#fff"/><text x="12" y="15.4" text-anchor="middle" font-size="7.6" font-weight="900" font-style="italic" fill="#e53935" font-family="Arial,sans-serif">UNO</text></svg></div>
+    <div class="meta"><div class="title">UNO Live</div><div class="sub" id="sub">Lawan 2 bot • habiskan kartumu duluan</div></div>
+  </div>
+  <div class="chips" id="np"><button class="chip" data-n="1">1 Bot</button><button class="chip on" data-n="2">2 Bot</button><button class="chip" data-n="3">3 Bot</button></div>
+  <div class="opps" id="opps"></div>
+  <div class="table">
+    <div class="pile" id="dp"></div>
+    <div class="topc" id="tc"></div>
+    <div class="side"><div class="cdot" id="cd"></div><div class="cname" id="cn"></div>
+      <svg class="dirs" id="dr" viewBox="0 0 30 30"><path d="M6 15a9 9 0 0 1 16-5.6" fill="none" stroke="#d7f3e2" stroke-width="2.6" stroke-linecap="round"/><path d="M22 3.5v6.5h-6.5" fill="none" stroke="#d7f3e2" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M24 15a9 9 0 0 1-16 5.6" fill="none" stroke="#d7f3e2" stroke-width="2.6" stroke-linecap="round"/><path d="M8 26.5V20h6.5" fill="none" stroke="#d7f3e2" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+    <div class="pick hide" id="pk"><b>Pilih warna</b><div><button data-c="r" style="background:#e53935"></button><button data-c="y" style="background:#f9a825"></button><button data-c="g" style="background:#2e9e4f"></button><button data-c="b" style="background:#1e7fd8"></button></div></div>
+  </div>
+  <div class="msg" id="msg"></div>
+  <div class="hand" id="hand"></div>
+  <div class="row"><button class="btn uno" id="uno">UNO!</button><button class="btn alt" id="ps">Lewati</button><button class="btn alt" id="rs">Main Ulang</button></div>
+  <div class="stat"><span>Menang <b id="w">0</b></span><span>Kalah <b id="l">0</b></span></div>
+  <div class="cr">Create By <b>DinzID</b></div>
+</div></div>
+
+<script>
+(function(){
+const $=id=>document.getElementById(id);
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const CN={r:'Merah',y:'Kuning',g:'Hijau',b:'Biru'};
+const CC={r:'#e53935',y:'#f9a825',g:'#2e9e4f',b:'#1e7fd8',k:'#1b1b1f'};
+const BOT=[['Rafi','#3b82f6'],['Sinta','#ec4899'],['Dimas','#f59e0b']];
+
+/* ---------- gambar kartu ---------- */
+function sym(v,k){
+  if(v==='s')return `<circle r="11" fill="none" stroke="${k}" stroke-width="4.6"/><path d="M-8 -8L8 8" stroke="${k}" stroke-width="4.6"/>`;
+  if(v==='r')return `<g fill="none" stroke="${k}" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"><path d="M-11 -5H8M3 -10l6 5-6 5"/><path d="M11 5H-8M-3 0l-6 5 6 5"/></g>`;
+  if(v==='d')return `<rect x="-11" y="-12" width="13" height="19" rx="2.5" fill="${k}" transform="rotate(-14)"/><rect x="-2" y="-8" width="13" height="19" rx="2.5" fill="${k}" stroke="#fff" stroke-width="1.8" transform="rotate(12)"/>`;
+  return '';}
+function quad(r){return `<path d="M0 0V${-r}A${r} ${r} 0 0 1 ${r} 0Z" fill="#2e7fd8"/><path d="M0 0H${r}A${r} ${r} 0 0 1 0 ${r}Z" fill="#2e9e4f"/><path d="M0 0V${r}A${r} ${r} 0 0 1 ${-r} 0Z" fill="#f9a825"/><path d="M0 0H${-r}A${r} ${r} 0 0 1 0 ${-r}Z" fill="#e53935"/>`}
+function card(c){
+  const col=CC[c.c],k=c.c==='k';
+  let s=`<svg viewBox="0 0 60 90"><rect x=".8" y=".8" width="58.4" height="88.4" rx="8" fill="#fff" stroke="rgba(0,0,0,.18)"/><rect x="4" y="4" width="52" height="82" rx="5.5" fill="${col}"/><ellipse cx="30" cy="45" rx="20" ry="31" transform="rotate(32 30 45)" fill="#fff"/>`;
+  let corner='',mid='';
+  if(/^\d$/.test(c.v)){
+    mid=`<text x="31.4" y="58.6" text-anchor="middle" font-size="36" font-weight="900" font-style="italic" fill="#000" opacity=".18" font-family="Arial Black,Arial,sans-serif">${c.v}</text><text x="30" y="57" text-anchor="middle" font-size="36" font-weight="900" font-style="italic" fill="${col}" font-family="Arial Black,Arial,sans-serif">${c.v}</text>`;
+    corner=`<text x="9" y="17" text-anchor="middle" font-size="12" font-weight="900" fill="#fff" font-family="Arial,sans-serif">${c.v}</text>`}
+  else if(c.v==='w'){mid=`<g transform="translate(30 45) rotate(32)">${quad(15)}</g>`;corner=`<g transform="translate(9 13)">${quad(4.6)}</g>`}
+  else if(c.v==='w4'){mid=`<g transform="translate(30 38)">${quad(11)}</g><text x="30" y="66" text-anchor="middle" font-size="15" font-weight="900" fill="#1b1b1f" font-family="Arial,sans-serif">+4</text>`;corner=`<text x="10" y="17" text-anchor="middle" font-size="10.5" font-weight="900" fill="#fff" font-family="Arial,sans-serif">+4</text>`}
+  else{mid=`<g transform="translate(30 45)">${sym(c.v,col)}</g>`;corner=`<g transform="translate(10 14) scale(.36)">${sym(c.v,'#fff')}</g>`}
+  s+=mid+corner+`<g transform="rotate(180 30 45)">${corner}</g></svg>`;return s}
+const BACK=`<svg viewBox="0 0 60 90"><rect x=".8" y=".8" width="58.4" height="88.4" rx="8" fill="#fff" stroke="rgba(0,0,0,.18)"/><rect x="4" y="4" width="52" height="82" rx="5.5" fill="#1b1b1f"/><ellipse cx="30" cy="45" rx="20" ry="31" transform="rotate(32 30 45)" fill="#e53935"/><text x="30" y="50" text-anchor="middle" font-size="17" font-weight="900" font-style="italic" fill="#fbc02d" stroke="#000" stroke-width=".6" transform="rotate(-32 30 45)" font-family="Arial Black,Arial,sans-serif">UNO</text></svg>`;
+function avatar(c,i){const e=[8.4,12.6];return `<svg class="av" viewBox="0 0 36 36"><circle cx="18" cy="18" r="17" fill="${c}"/><rect x="7" y="9" width="22" height="19" rx="7" fill="#eef1f6"/><path d="M18 9V4" stroke="#eef1f6" stroke-width="2" stroke-linecap="round"/><circle cx="18" cy="3.6" r="2" fill="#fbc02d"/><circle cx="13" cy="17.5" r="2.7" fill="#1b1b1f"/><circle cx="23" cy="17.5" r="2.7" fill="#1b1b1f"/><circle cx="13.8" cy="16.7" r=".9" fill="#fff"/><circle cx="23.8" cy="16.7" r=".9" fill="#fff"/><path d="M13 23c2 2 8 2 10 0" fill="none" stroke="#1b1b1f" stroke-width="1.6" stroke-linecap="round"/></svg>`}
+
+/* ---------- logika ---------- */
+function shuf(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+function mkDeck(){const d=[];for(const c of'rygb'){d.push({c,v:'0'});for(let i=1;i<=9;i++)d.push({c,v:''+i},{c,v:''+i});for(const v of['s','r','d'])d.push({c,v},{c,v})}for(let i=0;i<4;i++)d.push({c:'k',v:'w'},{c:'k',v:'w4'});return shuf(d)}
+const nm=c=>c.v==='w'?'Wild':c.v==='w4'?'Wild +4':({s:'Skip',r:'Reverse',d:'+2'}[c.v]||c.v)+' '+CN[c.c];
+const ORD={r:0,y:1,g:2,b:3,k:4};
+const sortH=h=>h.sort((a,b)=>ORD[a.c]-ORD[b.c]||(''+a.v).localeCompare(''+b.v,undefined,{numeric:true}));
+
+let P,deck,disc,top,color,dir,cur,over,canAct,drawn,unoOn,nb=2,gid=0,pend=null,st={w:0,l:0};
+try{st=Object.assign(st,JSON.parse(localStorage.getItem('yt_uno')||'{}'))}catch(e){}
+const sv=()=>{try{localStorage.setItem('yt_uno',JSON.stringify(st))}catch(e){}};
+const ok=c=>c.c==='k'||c.c===color||c.v===top.v;
+const nxt=(i,k=1)=>((i+dir*k)%P.length+P.length*3)%P.length;
+function give(i,n){for(let k=0;k<n;k++){if(!deck.length){const t=disc.pop();deck=shuf(disc);disc=[t];if(!deck.length)return}P[i].hand.push(deck.pop())}if(i===0)sortH(P[0].hand)}
+function msg(t,c){const m=$('msg');m.textContent=t;m.className='msg'+(c?' '+c:'')}
+
+function init(){
+  gid++;deck=mkDeck();disc=[];dir=1;cur=0;over=false;canAct=false;drawn=null;unoOn=false;pend=null;
+  P=[{n:'Kamu',hand:[],bot:false}];for(let i=0;i<nb;i++)P.push({n:BOT[i][0],c:BOT[i][1],hand:[],bot:true});
+  for(let r=0;r<7;r++)P.forEach((p,i)=>give(i,1));sortH(P[0].hand);
+  let f;do{f=deck.pop();if(!/^\d$/.test(f.v))deck.unshift(f)}while(!/^\d$/.test(f.v));
+  disc.push(f);top=f;color=f.c;
+  $('pk').classList.add('hide');$('sub').textContent=`Lawan ${nb} bot • habiskan kartumu duluan`;
+  render(true);turnStart(gid)}
+
+function render(fresh){
+  $('opps').innerHTML=P.slice(1).map((p,i)=>`<div class="opp${cur===i+1&&!over?' act':''}">${avatar(p.c)}<div class="n">${p.n}</div><div class="c">${BACK}<span>${p.hand.length}</span></div>${p.hand.length===1?'<div class="u">UNO!</div>':''}</div>`).join('');
+  $('dp').innerHTML=BACK+'<div class="lb">TARIK</div>';
+  const tc=$('tc');tc.innerHTML=card(top);tc.classList.remove('new');if(!fresh){void tc.offsetWidth;tc.classList.add('new')}
+  $('cd').style.setProperty('--cc',CC[color]);$('cn').textContent=CN[color];$('dr').style.transform=`scaleX(${dir})`;
+  const h=P[0].hand,can=canAct&&!over;
+  $('hand').innerHTML=h.map((c,i)=>`<div class="hc${can&&ok(c)&&(!drawn||drawn===c)?' ok':''}" data-i="${i}">${card(c)}</div>`).join('');
+  $('uno').classList.toggle('on',unoOn);$('uno').classList.toggle('hide',!(can&&h.length===2));
+  $('ps').disabled=!(can&&drawn);$('w').textContent=st.w;$('l').textContent=st.l}
+
+async function turnStart(g){
+  if(over||g!==gid)return;render();
+  if(P[cur].bot){await sleep(950);if(g!==gid||over)return;botTurn(g)}
+  else{canAct=true;drawn=null;unoOn=false;render();
+    msg(P[0].hand.some(ok)?'Giliranmu — pilih kartu yang menyala':'Tidak ada kartu cocok — tarik dari tumpukan')}}
+
+function advance(skip){cur=nxt(cur,skip?2:1);canAct=false;turnStart(gid)}
+
+function doPlay(i,c,col){
+  const p=P[i];p.hand.splice(p.hand.indexOf(c),1);disc.push(c);top=c;color=c.c==='k'?col:c.c;
+  let note=`${p.n} main ${nm(c)}`,skip=false;
+  if(c.c==='k')note+=` → ${CN[color]}`;
+  if(c.v==='s'){skip=true;note+=` (${P[nxt(i)].n} dilewati)`}
+  if(c.v==='r'){dir=-dir;if(P.length===2)skip=true;note+=' (arah berbalik)'}
+  if(c.v==='d'){give(nxt(i),2);skip=true;note+=` (${P[nxt(i)].n} tarik 2)`}
+  if(c.v==='w4'){give(nxt(i),4);skip=true;note+=` (${P[nxt(i)].n} tarik 4)`}
+  canAct=false;drawn=null;
+  if(!p.hand.length){over=true;render();
+    if(i===0){st.w++;msg('🏆 Kamu menang! Semua kartu habis.','win')}else{st.l++;msg(`${p.n} menghabiskan kartunya. Kamu kalah!`,'lose')}
+    sv();render();return}
+  if(p.hand.length===1){const called=p.bot?Math.random()>.12:unoOn;if(called)note+=' — UNO!';else{give(i,2);note+=' — lupa UNO! +2 kartu'}}
+  msg(note);render();setTimeout(()=>advance(skip),i===0?650:900)}
+
+function domColor(h){const n={r:0,y:0,g:0,b:0};h.forEach(c=>{if(c.c!=='k')n[c.c]++});const m=Math.max(n.r,n.y,n.g,n.b);if(!m)return'rygb'[Math.floor(Math.random()*4)];return Object.keys(n).filter(k=>n[k]===m)[0]}
+function botTurn(g){
+  const p=P[cur],i=cur;let pl=p.hand.filter(ok);
+  const choose=c=>{const rest=p.hand.filter(x=>x!==c);doPlay(i,c,c.c==='k'?domColor(rest):null)};
+  if(!pl.length){give(i,1);const c=p.hand[p.hand.length-1];msg(`${p.n} menarik kartu`);render();
+    if(c&&ok(c))setTimeout(()=>{if(g===gid&&!over)choose(c)},800);else setTimeout(()=>{if(g===gid)advance(false)},800);return}
+  const hot=P[nxt(i)].hand.length<=2;
+  const sc=c=>{let s=0;if(c.c==='k')s-=6;if('srd'.includes(c.v)||c.v==='w4')s+=hot?9:2;if(c.v==='w4'&&!hot)s-=8;s+=p.hand.filter(x=>x.c===c.c).length*1.2;if(/^\d$/.test(c.v))s+=+c.v/10;return s+Math.random()};
+  pl.sort((a,b)=>sc(b)-sc(a));choose(pl[0])}
+
+/* ---------- input pemain ---------- */
+$('hand').addEventListener('click',e=>{
+  const el=e.target.closest('.hc');if(!el||!canAct||over)return;
+  const c=P[0].hand[+el.dataset.i];if(!c||!ok(c)||(drawn&&drawn!==c))return;
+  if(c.c==='k'){pend=c;$('pk').classList.remove('hide');return}
+  doPlay(0,c,null)});
+$('pk').addEventListener('click',e=>{const col=e.target.dataset&&e.target.dataset.c;if(!col||!pend)return;const c=pend;pend=null;$('pk').classList.add('hide');doPlay(0,c,col)});
+let before=[];
+function drawCard(){
+  if(!canAct||over||drawn)return;before=P[0].hand.slice();give(0,1);
+  const c=P[0].hand.find(x=>before.indexOf(x)<0);drawn=c||null;render();
+  if(c&&ok(c)){msg(`Kamu dapat ${nm(c)} — mainkan atau lewati`)}
+  else{msg(`Kamu dapat ${c?nm(c):'kartu'} — tidak bisa dimainkan`);canAct=false;const g=gid;setTimeout(()=>{if(g===gid&&!over)advance(false)},900)}}
+$('dp').onclick=drawCard;
+$('ps').onclick=()=>{if(canAct&&drawn&&!over)advance(false)};
+$('uno').onclick=()=>{unoOn=!unoOn;render()};
+$('rs').onclick=init;
+$('np').addEventListener('click',e=>{const n=e.target.dataset&&e.target.dataset.n;if(!n)return;nb=+n;[].forEach.call($('np').children,x=>x.classList.toggle('on',x===e.target));init()});
+init();
+})();
+</script>
+</body></html>
