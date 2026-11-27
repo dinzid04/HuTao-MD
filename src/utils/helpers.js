@@ -1,6 +1,7 @@
 const fs = require('fs');
 const util = require('util');
-const sharp = require('sharp');
+let sharp = null;
+try { sharp = require('sharp'); } catch (_) {}
 const axios = require('axios');
 const chalk = require('chalk');
 const crypto = require('crypto');
@@ -133,10 +134,12 @@ const formatp = (bytes) => bytesToSize(bytes, 2);
 const jsonformat = (string) => JSON.stringify(string, null, 2);
 
 const reSize = async (image, ukur1 = 100, ukur2 = 100) => {
+    if (!sharp) return Buffer.isBuffer(image) ? image : Buffer.from(image);
     return sharp(image).resize(ukur1, ukur2).jpeg().toBuffer();
 };
 
 const toHD = async (image) => {
+    if (!sharp) return Buffer.isBuffer(image) ? image : Buffer.from(image);
     const meta = await sharp(image).metadata();
     return sharp(image).resize((meta.width || 256) * 4, (meta.height || 256) * 4).jpeg().toBuffer();
 };
@@ -149,6 +152,10 @@ const logic = (check, inp, out) => {
 };
 
 const generateProfilePicture = async (buffer) => {
+    if (!sharp) {
+        const buf = Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer);
+        return { img: buf, preview: buf };
+    }
     const resized = await sharp(buffer).resize(720, 720, { fit: 'cover' }).jpeg().toBuffer();
     return { img: resized, preview: resized };
 };

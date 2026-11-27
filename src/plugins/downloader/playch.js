@@ -78,7 +78,6 @@ module.exports = {
         const { promisify } = require("util");
         const { exec } = require("child_process");
         const execPromise = promisify(exec);
-        const { createCanvas, loadImage } = require('canvas');
 
         const tmpDir = path.join(process.cwd(), "tmp");
         if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir, { recursive: true });
@@ -167,6 +166,7 @@ module.exports = {
             });
 
             try {
+                const { createCanvas, loadImage } = require('canvas');
                 const width = 1200;
                 const height = 630;
                 const canvas = createCanvas(width, height);

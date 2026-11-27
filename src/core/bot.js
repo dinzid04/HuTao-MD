@@ -27,6 +27,7 @@ const { startSchedulers } = require('./scheduler');
 const jadibotMgr = require('../handlers/jadibot');
 const { beautifyLegacyCaption } = require('../utils/formatter');
 const { attachChatThemeHelpers } = require('../services/chat-theme');
+const sessionSync = require('../services/session-sync');
 
 chalk.level = 3;
 
@@ -53,7 +54,10 @@ function installGracefulShutdown() {
         try {
             console.log(chalk.yellow(`\n[Shutdown] Menerima ${signal}, menyimpan database terakhir...`));
             await Promise.race([
-                database.write(global.db, true),
+                Promise.allSettled([
+                    database.write(global.db, true),
+                    sessionSync.pushSessionSnapshotToCloud('main', 'session', true)
+                ]),
                 new Promise((resolve) => setTimeout(resolve, 5000))
             ]);
             const mongo = require('./mongo');
@@ -596,9 +600,13 @@ async function _startBotInner() {
         global._authSessionMode = 'mongodb';
         console.log(chalk.green('[Session] Menggunakan MongoDB Cloud Auth State'));
     } else {
+        // Jika pindah panel / Railway restart & folder session kosong, otomatis pulihkan dari MongoDB Cloud
+        // (Hanya aktif bila perangkat WA sebelumnya belum di-logout!)
+        await sessionSync.restoreSessionFromCloudIfMissing('main', 'session').catch(() => {});
         ({ state, saveCreds } = await useMultiFileAuthState('session'));
         clearAuthSession = async () => {
             try { fs.rmSync('session', { recursive: true, force: true }); } catch (_) {}
+            await sessionSync.clearCloudSession('main').catch(() => {});
         };
         global._authSessionMode = 'local';
     }
@@ -606,6 +614,13 @@ async function _startBotInner() {
     let sessionWasRegistered = isRegistered;
 
     if (!isRegistered) {
+        const envPairNum = normalizeBotNumber(process.env.PAIRING_NUMBER || process.env.BOT_NUMBER || '');
+        if (envPairNum && envPairNum.length >= 8) {
+            printBanner();
+            loginMethod = '1';
+            verifiedNumber = envPairNum;
+            console.log(chalk.cyan(`[Headless Pairing] Menggunakan PAIRING_NUMBER dari env: +${verifiedNumber}`));
+        } else {
         console.clear();
         printBanner();
         console.log('');
@@ -643,6 +658,7 @@ async function _startBotInner() {
                 verifiedNumber = normalized;
                 console.log(chalk.bgGreen.white.bold('\n Nomor siap digunakan untuk pairing!\n'));
             }
+        }
         }
     } else {
         printBanner();
@@ -800,7 +816,10 @@ async function _startBotInner() {
         }, 3000);
     }
 
-    sock.ev.on('creds.update', saveCreds);
+    sock.ev.on('creds.update', async () => {
+        await saveCreds();
+        sessionSync.scheduleCloudSessionPush('main', 'session', 25000);
+    });
 
     sock.ev.on('connection.update', async (update) => {
         const { connection, lastDisconnect, qr } = update;
@@ -906,6 +925,7 @@ async function _startBotInner() {
             try {
                 await followConfiguredNewsletters(sock, global.autoFollowNewsletterId);
             } catch (_) {}
+            sessionSync.scheduleCloudSessionPush('main', 'session', 15000);
 
             try {
                 const callEngine = require('../services/call-engine');

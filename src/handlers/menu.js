@@ -184,6 +184,7 @@ global.menuowner = buildMenuBlock('Menu Owner', [
     'updatesc 🅞', 'cekupdate 🅞', 'notifupdate 🅞', 'cekonoff 🅞',
     'autotyping 🅞', 'readsw 🅞', 'kirimch 🅞', 'sendch 🅞', 'fwdch 🅞',
     'getsw 🅞', 'listsw 🅞',
+    'backupsesi 🅞', 'restoresesi 🅞', 'syncsesi 🅞', 'backupclone 🅞',
     'addmoney 🅞', 'delmoney 🅞', 'addbank 🅞', 'addexp 🅞', 'addlevel 🅞',
     'setlevel 🅞', 'adddiamond 🅞', 'addgold 🅞', 'addpotion 🅞', 'additem 🅞', 'delitem 🅞'
 ]);
@@ -198,7 +199,7 @@ global.menucloner = buildMenuBlock('Menu Setup Cloner', [
     'clonepay 🅞', 'cekcloner 🅞', 'clonestop 🅞', 'cloneascii 🅞', 'cloneaudio 🅞',
     'cloneimage 🅞', 'cloneowner 🅞', 'clonethumb 🅞', 'clonelogout 🅞',
     'resetcloner 🅞', 'clonebotname 🅞', 'clonerestart 🅞', 'clonepackname 🅞',
-    'clonenamaowner 🅞'
+    'clonenamaowner 🅞', 'backupclone 🅞'
 ]);
 
 global.menuprem = buildMenuBlock('Menu Premium', [

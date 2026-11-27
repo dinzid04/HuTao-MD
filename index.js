@@ -1200,6 +1200,30 @@ require('./settings');
 const chalk = require('chalk');
 const { startBot } = require('./src/core/bot');
 
+// Healthcheck HTTP server otomatis untuk platform PaaS seperti Railway / Render / Fly.io
+// (Hanya aktif jika env PORT diset — 0 overhead di Pterodactyl & Termux)
+if (process.env.PORT && !global._healthServerStarted) {
+    try {
+        const http = require('http');
+        const port = parseInt(process.env.PORT, 10) || 3000;
+        const srv = http.createServer((req, res) => {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+                status: 'ok',
+                bot: global.botname || 'HuTao - MD',
+                version: global.versi || '1.0.0',
+                connected: Boolean(global.socket?.user?.id),
+                uptime: Math.floor(process.uptime())
+            }));
+        });
+        srv.listen(port, '0.0.0.0', () => {
+            console.log(chalk.cyan(`[Health] HTTP server aktif di port ${port} (Railway/Cloud ready)`));
+        });
+        srv.on('error', () => {});
+        global._healthServerStarted = true;
+    } catch (_) {}
+}
+
 function boot() {
     startBot().catch((err) => {
         console.error(chalk.red('[Boot] Gagal memulai bot:'), err);

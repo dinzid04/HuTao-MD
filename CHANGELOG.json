@@ -1,19 +1,18 @@
 {
-  "version": "1.3.0",
+  "version": "1.4.0",
   "updatedAt": "2026-11-27",
-  "summary": "Upgrade Fork Baileys (hutao-baileys), Fix Sticker Audio iOS & Android + WM, Fix SWM Preserve Audio, Fitur ViewOnce/V2/V2Ext/Spoiler, Fix Jeda Start Flappy Bird & Style Menu Elsyaa",
+  "summary": "Dukungan Stabil Termux & Railway, Fix Teks & Tata Letak Setmenu 8, RVO Multi-Fallback Anti Gagal (WA Bisnis & 2x View), Cloud Session Sync Lintas Panel, dan Backup SC Mandiri untuk Jadibot Clone",
   "added": [
-    "Fork resmi Baileys internal (dinzid04/hutao-baileys v8.7.0) dengan WAProto terbaru: dukungan native audioStickerMessage (field 134), StickerMessage.audioMessage (field 26), spoilerMessage (field 118), viewOnce, viewOnceV2, viewOnceV2Extension, dan seluruh patch E2EE anti-delay bawaan",
-    "Dukungan penuh sendMessage opsi viewOnce, viewOnceV2, viewOnceV2Extension, dan spoiler + command siap pakai (.viewonce/.vo, .vov2, .vov2ext, .spoiler/.blur)",
-    "Style menu baru versi Elsyaa di .setmenu 8 / .setmenu elsyaa (tampilan kartu interaktif & tombol ala Elsyaa dengan fitur & teks asli HuTao - MD)",
-    "Watermark otomatis global.packname/author dan dukungan custom pack|author pada fitur .saudio"
+    "Dukungan penuh Termux (Android ARM64) & Railway Cloud: script termux-start.sh (wake-lock + auto-restart + hemat RAM), konfigurasi railway.json & nixpacks.toml, HTTP healthcheck otomatis di /health saat PORT aktif, env MONGO_URI & PAIRING_NUMBER untuk pairing headless",
+    "Hybrid Cloud Session Sync + Backup/Restore Session Portable (.backupsesi, .restoresesi, .syncsesi, .ceksesi): snapshot session otomatis ter-mirror ke MongoDB dengan latency lokal 0ms; jika panel down/pindah panel baru dan perangkat WA belum di-logout, session bot utama maupun jadibot otomatis pulih tanpa pairing ulang (otomatis terhapus saat 401/loggedOut)",
+    "Fitur .backupclone / .backupsc untuk Jadibot: mengekspor 1 paket SC lengkap (100% fitur utuh tanpa pengurangan) yang sudah otomatis terisi konfigurasi rename, media lokal, dan database milik clone tersebut, serta bersih dari kredensial/session bot utama",
+    "Engine viewonce-store dengan penyimpanan metadata + cache media terdekripsi untuk .rvo agar pesan Sekali Lihat tetap tembus walau sudah dibuka 2x+ atau berasal dari WA Bisnis"
   ],
   "fixed": [
-    "Perbaikan Sticker Audio (.saudio) agar audio berbunyi di iPhone (iOS) maupun Android: pengiriman native field 134 dengan mediatype='sticker', durasi seconds & 64-bar waveform asli, serta konversi otomatis gambar diam ke WebP animasi 2-frame ringan agar didukung WhatsApp iOS",
-    "Perbaikan fitur .swm/.wm/.take agar saat mengubah watermark stiker yang memiliki audio (.saudio), track audionya tetap utuh & tidak hilang (didukung penyimpanan metadata audio-stickers untuk reply)",
-    "Perbaikan game Flappy Bird (.flappy/.flybird) dengan jeda hitung mundur 3-2-1 + fase melayang aman sebelum pipa datang sehingga pemain tidak langsung mati saat mulai"
+    "Perbaikan .setmenu 8 (Elsyaa Style): kini 100% menggunakan teks, font, dan tata letak default HuTao - MD (hanya mengambil tampilan gambar/kartu & tombol ala Elsyaa), serta perbaikan batas menuStyle di context.js agar style 8 tersimpan permanen setelah restart",
+    "Perbaikan total .rvo / .readviewonce / .buka dengan 5 lapis auto-fallback (cache dekripsi RAM, deep recursive unwrap kebal messageContextInfo WA Bisnis, viewonce-store lookup, store.loadMessage LID/PN, dan 5 metode unduh termasuk rekonstruksi mmg.whatsapp.net & updateMediaMessage) + menjaga format OGG/Opus pada voice note"
   ],
   "changed": [
-    "Dependency Baileys kini menggunakan fork resmi dinzid04/hutao-baileys tanpa banner konsol pihak ketiga"
+    "Dependensi native opsional (canvas, sharp, @ffmpeg-installer/ffmpeg) dipindahkan ke optionalDependencies agar npm install di Termux Android tidak gagal, sementara Linux/Railway tetap menginstalnya secara otomatis"
   ]
 }

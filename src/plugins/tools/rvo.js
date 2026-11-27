@@ -1,95 +1,87 @@
-const { downloadContentFromMessage } = require('./_helper');
+const viewonceStore = require('../../services/viewonce-store');
 
 module.exports = {
     name: 'rvo',
     category: 'tools',
-    commands: ['rvo', 'readviewonce', 'readvo'],
+    commands: ['rvo', 'readviewonce', 'readvo', 'buka', 'reveal'],
 
     async execute(ctx) {
-        const { Dinz, m, command, text, quoted, isCreator, Reply, checkLimit, addLimit } = ctx;
+        const { Dinz, m, store, command, isCreator, Reply, checkLimit, addLimit } = ctx;
 
         if (checkLimit(m.sender, isCreator)) return Reply(global.mess.limit);
 
         if (!m.quoted) {
-            return Reply(`\`⌜ Read View Once ⌟\`\n> ◦ *Format :* reply pesan view once dengan ${command}`);
+            return Reply(
+                `\`⌜ Read View Once (Auto-Fallback) ⌟\`\n` +
+                `> ◦ *Format :* reply foto, video, VN, atau spoiler sekali lihat dengan *.${command}*\n` +
+                `> ◦ *Support :* ViewOnce, ViewOnce V2/V2Ext, WA Business, Spoiler, dan buka ulang berkali-kali`
+            );
         }
 
-        let qMessage = m.quoted.message || {};
-        let targetMediaMsg = null;
-        let targetMediaType = null;
-
-        if (qMessage.viewOnceMessage?.message) {
-            const inner = qMessage.viewOnceMessage.message;
-            targetMediaType = Object.keys(inner)[0];
-            targetMediaMsg = inner[targetMediaType];
-        } else if (qMessage.viewOnceMessageV2?.message) {
-            const inner = qMessage.viewOnceMessageV2.message;
-            targetMediaType = Object.keys(inner)[0];
-            targetMediaMsg = inner[targetMediaType];
-        } else if (qMessage.viewOnceMessageV2Extension?.message) {
-            const inner = qMessage.viewOnceMessageV2Extension.message;
-            targetMediaType = Object.keys(inner)[0];
-            targetMediaMsg = inner[targetMediaType];
-        } else {
-            targetMediaMsg = m.quoted.msg;
-            targetMediaType = m.quoted.type;
-        }
-
-        if (!targetMediaMsg) {
-            return Reply("❌ Media View Once tidak ditemukan pada pesan yang di-reply.");
-        }
-
-        await Dinz.sendMessage(m.chat, { react: { text: "⏳", key: m.key } }).catch(() => {});
+        await Dinz.sendMessage(m.chat, { react: { text: '⏳', key: m.key } }).catch(() => {});
 
         try {
-            let mediaTypeClean = (targetMediaType || '').replace('Message', '').toLowerCase();
-            if (!mediaTypeClean) {
-                if (/image/i.test(targetMediaMsg.mimetype)) mediaTypeClean = 'image';
-                else if (/video/i.test(targetMediaMsg.mimetype)) mediaTypeClean = 'video';
-                else if (/audio/i.test(targetMediaMsg.mimetype)) mediaTypeClean = 'audio';
+            const res = await viewonceStore.extractAndDownloadViewOnce(Dinz, m, store);
+            if (!res) {
+                await Dinz.sendMessage(m.chat, { react: { text: '❌', key: m.key } }).catch(() => {});
+                return Reply(
+                    `❌ Media View Once / Spoiler tidak ditemukan atau sudah terlalu lama/expired sebelum bot menerima pesannya.\n` +
+                    `> 💡 Pastikan bot berada di chat/grup saat pesan sekali lihat dikirim agar media otomatis ter-backup untuk dibuka kapan saja.`
+                );
             }
 
-            const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
-            const stream = await downloadContentFromMessage(targetMediaMsg, mediaTypeClean || 'image');
-            let buffer = Buffer.from([]);
-            for await (const chunk of stream) {
-                buffer = Buffer.concat([buffer, chunk]);
-            }
+            const senderJid = res.sender || m.quoted.sender || '';
+            const senderNum = senderJid ? senderJid.split('@')[0].split(':')[0] : '';
+            const senderTag = senderNum ? `@${senderNum}` : 'Pengirim';
+            const mentions = senderJid && senderNum ? [senderJid] : [];
+            const captionTxt = res.caption || '';
+            const infoCaption =
+                `\`⌜ Read View Once ⌟\`\n` +
+                `> ◦ *Dari :* ${senderTag}` +
+                `${captionTxt ? `\n> ◦ *Caption :* ${captionTxt}` : ''}`;
 
-            if (!buffer || buffer.length === 0) {
-                throw new Error("Gagal mengunduh isi media View Once.");
-            }
-
-            const captionTxt = targetMediaMsg.caption || m.quoted.text || '';
-            const senderTag = m.quoted.sender ? `@${m.quoted.sender.split('@')[0]}` : 'Pengirim';
-            const infoCaption = `\`⌜ Read View Once ⌟\`\n> ◦ *Dari :* ${senderTag}${captionTxt ? `\n> ◦ *Caption :* ${captionTxt}` : ''}`;
-
-            if (mediaTypeClean === 'video' || /video/i.test(targetMediaMsg.mimetype)) {
+            if (res.isText || res.mediaType === 'text') {
                 await Dinz.sendMessage(m.chat, {
-                    video: buffer,
+                    text: `${infoCaption}\n\n${res.caption || '(kosong)'}`,
+                    mentions
+                }, { quoted: m });
+            } else if (res.mediaType === 'video' || /video/i.test(res.mimetype)) {
+                await Dinz.sendMessage(m.chat, {
+                    video: res.buffer,
                     caption: infoCaption,
-                    mimetype: 'video/mp4',
-                    mentions: m.quoted.sender ? [m.quoted.sender] : []
+                    mimetype: res.mimetype || 'video/mp4',
+                    mentions
                 }, { quoted: m });
-            } else if (mediaTypeClean === 'audio' || /audio/i.test(targetMediaMsg.mimetype)) {
+            } else if (res.mediaType === 'audio' || /audio/i.test(res.mimetype)) {
+                const isOpus = /ogg|opus/i.test(res.mimetype);
                 await Dinz.sendMessage(m.chat, {
-                    audio: buffer,
-                    mimetype: 'audio/mp4',
-                    ptt: true
+                    audio: res.buffer,
+                    mimetype: isOpus ? 'audio/ogg; codecs=opus' : (res.mimetype || 'audio/ogg; codecs=opus'),
+                    ptt: res.ptt !== false
                 }, { quoted: m });
+            } else if (res.mediaType === 'document') {
+                await Dinz.sendMessage(m.chat, {
+                    document: res.buffer,
+                    mimetype: res.mimetype || 'application/octet-stream',
+                    fileName: res.fileName || `viewonce_${Date.now()}`,
+                    caption: infoCaption,
+                    mentions
+                }, { quoted: m });
+            } else if (res.mediaType === 'sticker') {
+                await Dinz.sendMessage(m.chat, { sticker: res.buffer }, { quoted: m });
             } else {
                 await Dinz.sendMessage(m.chat, {
-                    image: buffer,
+                    image: res.buffer,
                     caption: infoCaption,
-                    mentions: m.quoted.sender ? [m.quoted.sender] : []
+                    mentions
                 }, { quoted: m });
             }
 
             addLimit(m.sender, isCreator);
-            await Dinz.sendMessage(m.chat, { react: { text: "✅", key: m.key } }).catch(() => {});
+            await Dinz.sendMessage(m.chat, { react: { text: '✅', key: m.key } }).catch(() => {});
         } catch (err) {
             console.error('RVO error:', err);
-            await Dinz.sendMessage(m.chat, { react: { text: "❌", key: m.key } }).catch(() => {});
+            await Dinz.sendMessage(m.chat, { react: { text: '❌', key: m.key } }).catch(() => {});
             Reply(`❌ Gagal membaca View Once: ${err.message}`);
         }
         return true;

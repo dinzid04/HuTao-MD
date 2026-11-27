@@ -69,9 +69,9 @@ const MENU_STYLES = [
     {
         id: 8,
         key: 'elsyaa',
-        name: 'Elsyaa Style Interactive',
+        name: 'Elsyaa Button Style',
         source: 'Elsyaa',
-        desc: 'Tampilan & tombol interaktif ala Elsyaa (Menu, Support, CTA & AllMenu Location Banner).'
+        desc: 'Teks & tata letak default HuTao dengan tampilan gambar & style tombol ala Elsyaa.'
     }
 ];
 
@@ -1055,77 +1055,33 @@ async function sendStyledMenu({
             const nowTz = moment().tz(global.timezone || 'Asia/Jakarta');
             const timeDot = nowTz.format('HH.mm');
             const uptimeStr = formatUptime(process.uptime());
-            const statusEmoji = isCreator ? '👑' : isPrem ? '💎' : '🆓';
-            const roleLabel = isCreator ? 'Owner' : isPrem ? 'Premium' : 'Member';
             const ownerNumber = String(identity.owner || global.owner || '').replace(/[^0-9]/g, '');
-            const cleanPushName = String(stats.pushName || 'User').replace(/@/g, '').trim() || 'User';
-            const introSmallCaps = toSmallCaps(
-                `i am ${botname} your personal automated assistant on whatsapp, here to help you with commands, tools, and all the features available in this bot.`
-            );
-
-            const profileSystemFooter = [
-                '—–·「 PROFILE 」·–—',
-                `   ✧ Username : ${cleanPushName}`,
-                `   ✧ Status   : ${statusEmoji} ${roleLabel}`,
-                `   ✧ Limit    : ${stats.limitText}`,
-                '',
-                '—–·「 SYSTEM 」·–—',
-                `   ✧ Bot Name      : ${botname}`,
-                `   ✧ Owner         : ${ownerName}`,
-                `   ✧ Version       : v${global.versi || '1.0.0'}`,
-                `   ✧ Total Feature : ${totalFitur}`,
-                `   ✧ Time          : ${timeDot} WIB`,
-                `   ✧ Active since  : ${uptimeStr}`,
-                '',
-                " Enjoy the bot's features"
-            ].join('\n');
 
             const catRows = MENU_CATEGORIES.filter((c) => c.cmd !== 'allmenu').map((c) => ({
-                title: `${c.emoji || '▪'} ${c.title.toUpperCase()}`,
-                description: c.desc,
+                title: `${c.emoji || '▪'} ${toSmallCaps(c.title)}`,
+                description: toSmallCaps(c.desc),
                 id: prefixCmd(c.cmd, activePrefix)
             }));
 
-            // AllMenu / Menu Kategori: gaya Elsyaa AllMenu (buttonsMessage headerType 6 + location thumbnail + 1 tombol lebar "☰ Menu")
+            // AllMenu / Menu Kategori: teks & font 100% default HuTao (cleanCaption),
+            // hanya tampilan banner location thumbnail + 1 tombol lebar "☰ Menu" yang mengikuti gaya Elsyaa.
             if (categoryTeks) {
-                const blocks = parseShikiMenuBlocks(categoryTeks);
-                const sortAlpha = isAllMenu || blocks.length > 1;
-                const formattedBlocks = blocks.length
-                    ? buildFormattedBlockEntries(blocks, activePrefix, { sortBlocksAlpha: sortAlpha, useUnicodeBar: true })
-                        .map((e) => e.text)
-                        .join('\n\n')
-                    : categoryTeks;
-
-                const longFooter = [
-                    '—–·「 PROFILE 」·–—',
-                    `   ✧ Username : ${cleanPushName}`,
-                    `   ✧ Status   : ${statusEmoji} ${roleLabel}`,
-                    `   ✧ Limit    : ${stats.limitText}`,
-                    '',
-                    '—–·「 SYSTEM 」·–—',
-                    `   ✧ Bot Name      : ${botname}`,
-                    `   ✧ Owner         : ${ownerName}`,
-                    `   ✧ Version       : v${global.versi || '1.0.0'}`,
-                    `   ✧ Total Feature : ${totalFitur}`,
-                    `   ✧ Time          : ${timeDot} WIB`,
-                    `   ✧ Active since  : ${uptimeStr}`,
-                    '',
-                    formattedBlocks,
-                    '',
-                    " Enjoy the bot's features"
-                ].join('\n');
-
                 const chunkedSections = [];
                 for (let i = 0; i < catRows.length; i += 10) {
                     chunkedSections.push({
-                        title: i === 0 ? '📋 PILIH KATEGORI' : `📋 KATEGORI LANJUTAN ${Math.floor(i / 10) + 1}`,
+                        title: i === 0 ? toSmallCaps('pilih kategori') : `${toSmallCaps('kategori lanjutan')} ${Math.floor(i / 10) + 1}`,
                         rows: catRows.slice(i, i + 10)
                     });
                 }
-                const paramsJson = JSON.stringify({ title: '☰ Menu', sections: chunkedSections });
+                const paramsJson = JSON.stringify({ title: `☰ ${toSmallCaps('Menu')}`, sections: chunkedSections });
                 const locThumb = await makeThumbBuffer(imageBuffer, 300, 170, 72);
                 const msgTs = m.messageTimestamp ? Number(m.messageTimestamp) * 1000 : Date.now();
                 const pingMs = Math.max(1, Math.min(9999, Math.abs(Date.now() - msgTs)));
+
+                // Pisahkan bagian header default HuTao dan daftar command agar tidak dobel dan 100% tetap layout default HuTao
+                const splitIdx = cleanCaption.indexOf('\n\n`[');
+                const contentPart = splitIdx > 0 ? cleanCaption.slice(0, splitIdx) : cleanCaption;
+                const footerPart = splitIdx > 0 ? cleanCaption.slice(splitIdx + 2) : `© ${botFooterSmallCaps}`;
 
                 await Dinz.relayMessage(
                     m.chat,
@@ -1134,7 +1090,7 @@ async function sendStyledMenu({
                             buttons: [
                                 {
                                     buttonId: 'pilihan_menu',
-                                    buttonText: { displayText: '☰ Menu' },
+                                    buttonText: { displayText: `☰ ${toSmallCaps('Menu')}` },
                                     type: 1,
                                     nativeFlowInfo: {
                                         name: 'single_select',
@@ -1143,12 +1099,12 @@ async function sendStyledMenu({
                                 }
                             ],
                             locationMessage: {
-                                name: `──「 ${botname} 」──`,
-                                address: `⏱ ${uptimeStr} · ◷ ${timeDot} WIB · ⌁ ${pingMs}ms`,
+                                name: botFooterSmallCaps,
+                                address: `⏱ ${uptimeStr} • ${timeDot} WIB • ${pingMs}ms`,
                                 ...(locThumb ? { jpegThumbnail: locThumb } : {})
                             },
-                            contentText: introSmallCaps,
-                            footerText: longFooter,
+                            contentText: contentPart,
+                            footerText: footerPart,
                             contextInfo: {
                                 ...(mentions.length ? { mentionedJid: mentions } : {}),
                                 forwardingScore: 777,
@@ -1167,12 +1123,13 @@ async function sendStyledMenu({
                 return;
             }
 
-            // Menu Utama: gaya Elsyaa Interactive (image header + limited_time_offer + spacer buttons + Menu & Support single_select + CTA URL)
+            // Menu Utama: teks & font 100% default HuTao (cleanCaption),
+            // hanya gambar header + style tombol (spacer + Menu + Support + CTA URL + limited_time_offer) ala Elsyaa.
             const mainQuickRows = [
-                { title: 'All Menu', description: `Lihat semua ${totalFitur} fitur bot`, id: prefixCmd('allmenu', activePrefix) },
-                { title: 'Menu Jaga Grup', description: 'Panel button proteksi grup lengkap', id: prefixCmd('menu-jagagrup', activePrefix) },
-                { title: 'Rich Game', description: 'Flappy Bird, Chess, 2048, Wordle, dll', id: prefixCmd('richgame', activePrefix) },
-                { title: 'Owner Bot', description: `Hubungi ${ownerName}`, id: prefixCmd('owner', activePrefix) }
+                { title: `📚 ${toSmallCaps('All Menu')}`, description: toSmallCaps(`Lihat semua ${totalFitur} fitur bot`), id: prefixCmd('allmenu', activePrefix) },
+                { title: `🛡️ ${toSmallCaps('Menu Jaga Grup')}`, description: toSmallCaps('Panel button proteksi grup lengkap'), id: prefixCmd('menu-jagagrup', activePrefix) },
+                { title: `🎮 ${toSmallCaps('Rich Game')}`, description: toSmallCaps('Flappy Bird, Chess, 2048, Wordle, dll'), id: prefixCmd('richgame', activePrefix) },
+                { title: `👑 ${toSmallCaps('Owner Bot')}`, description: toSmallCaps(`Hubungi ${ownerName}`), id: prefixCmd('owner', activePrefix) }
             ];
 
             const elsyaaButtons = [
@@ -1180,10 +1137,10 @@ async function sendStyledMenu({
                 {
                     name: 'single_select',
                     buttonParamsJson: JSON.stringify({
-                        title: 'Menu',
+                        title: toSmallCaps('Menu'),
                         sections: [
-                            { title: 'MAIN MENU', rows: mainQuickRows },
-                            { title: 'KATEGORI FITUR', rows: catRows }
+                            { title: toSmallCaps('main menu'), rows: mainQuickRows },
+                            { title: toSmallCaps('kategori fitur'), rows: catRows }
                         ],
                         icon: 'DEFAULT'
                     })
@@ -1192,14 +1149,14 @@ async function sendStyledMenu({
                 {
                     name: 'single_select',
                     buttonParamsJson: JSON.stringify({
-                        title: 'Support',
+                        title: toSmallCaps('Support'),
                         sections: [
                             {
-                                title: `SUPPORT ${botname.toUpperCase()}`,
+                                title: toSmallCaps(`support ${botname}`),
                                 rows: [
-                                    { title: 'Contact Owner', description: 'Chat langsung dengan pengembang', id: prefixCmd('owner', activePrefix) },
-                                    { title: 'Cek On/Off Bot', description: 'Status setting bot & grup', id: prefixCmd('cekonoff', activePrefix) },
-                                    { title: 'Ganti Style Menu', description: 'Ubah tema tampilan menu (Owner)', id: prefixCmd('setmenu', activePrefix) }
+                                    { title: `👑 ${toSmallCaps('Contact Owner')}`, description: toSmallCaps('Chat langsung dengan owner'), id: prefixCmd('owner', activePrefix) },
+                                    { title: `⚙️ ${toSmallCaps('Cek On/Off Bot')}`, description: toSmallCaps('Status setting bot & grup'), id: prefixCmd('cekonoff', activePrefix) },
+                                    { title: `🎨 ${toSmallCaps('Ganti Style Menu')}`, description: toSmallCaps('Ubah tema tampilan menu (Owner)'), id: prefixCmd('setmenu', activePrefix) }
                                 ]
                             }
                         ],
@@ -1209,7 +1166,7 @@ async function sendStyledMenu({
                 {
                     name: 'cta_url',
                     buttonParamsJson: JSON.stringify({
-                        display_text: 'Contact Owner',
+                        display_text: toSmallCaps('Contact Owner'),
                         url: ownerNumber ? `https://wa.me/${ownerNumber}` : 'https://whatsapp.com',
                         merchant_url: ownerNumber ? `https://wa.me/${ownerNumber}` : 'https://whatsapp.com'
                     })
@@ -1231,8 +1188,8 @@ async function sendStyledMenu({
                             hasMediaAttachment: Boolean(headerMedia?.imageMessage),
                             ...(headerMedia?.imageMessage ? { imageMessage: headerMedia.imageMessage } : {})
                         },
-                        body: { text: introSmallCaps },
-                        footer: { text: profileSystemFooter },
+                        body: { text: cleanCaption },
+                        footer: { text: `© ${botFooterSmallCaps}` },
                         nativeFlowMessage: {
                             buttons: elsyaaButtons,
                             messageParamsJson: JSON.stringify({

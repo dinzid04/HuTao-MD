@@ -10,11 +10,11 @@ let warnedMissingDriver = false;
 let warnedConnError = false;
 
 function getMongoUri() {
-    return String(global.mongoUri || '').trim();
+    return String(process.env.MONGO_URI || process.env.MONGODB_URI || global.mongoUri || '').trim();
 }
 
 function getMongoDbName() {
-    return String(global.mongoDbName || 'shiki_ai').trim() || 'shiki_ai';
+    return String(process.env.MONGO_DB_NAME || global.mongoDbName || 'shiki_ai').trim() || 'shiki_ai';
 }
 
 function isConfigured() {

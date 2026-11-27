@@ -115,9 +115,9 @@ function normalizeBotData(raw, isJadibot = false) {
     if (!merged.settings.callAudioQuality || typeof merged.settings.callAudioQuality !== 'string') {
         merged.settings.callAudioQuality = 'clear';
     }
-    if (!Number.isInteger(merged.settings.menuStyle) || merged.settings.menuStyle < 1 || merged.settings.menuStyle > 7) {
+    if (!Number.isInteger(merged.settings.menuStyle) || merged.settings.menuStyle < 1 || merged.settings.menuStyle > 20) {
         const parsedStyle = parseInt(merged.settings.menuStyle, 10);
-        merged.settings.menuStyle = (parsedStyle >= 1 && parsedStyle <= 7) ? parsedStyle : 1;
+        merged.settings.menuStyle = (parsedStyle >= 1 && parsedStyle <= 20) ? parsedStyle : 1;
     }
 
     for (const [key, factory] of Object.entries(STORE_DEFAULTS)) {

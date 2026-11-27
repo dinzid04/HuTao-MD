@@ -1223,6 +1223,10 @@ async function Serialize(Dinz, msg, store) {
             const stickerAudioSvc = require('../services/sticker-audio');
             stickerAudioSvc.recordIncomingAudioSticker(m);
         } catch (_) {}
+        try {
+            const viewonceStore = require('../services/viewonce-store');
+            viewonceStore.recordViewOnceMessage(m);
+        } catch (_) {}
         if (m.message.deviceSentMessage?.message) {
             m.message = m.message.deviceSentMessage.message;
         }
