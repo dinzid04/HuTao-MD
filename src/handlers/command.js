@@ -43,6 +43,8 @@ const jadibotMgr = require('./jadibot');
 const pluginLoader = require('../core/plugins');
 const prefixMgr = require('../core/prefix');
 const menuRenderer = require('../services/menu-renderer');
+const customReactSvc = require('../services/custom-react');
+const elsyaaGames = require('../plugins/game/elsyaa-games');
 const { toBoldSans, toSmallCaps, toMono } = require('../utils/formatter');
 const loadOwners = (Dinz) => {
     try {
@@ -910,6 +912,11 @@ const handler = async (Dinz, m, chatUpdate, store) => {
             }
         }
 
+        if (!isCmd && !m.isBaileys && body) {
+            const handledMiniGame = await elsyaaGames.handleElsyaaGameReply(Dinz, m, body, Reply).catch(() => false);
+            if (handledMiniGame) return;
+        }
+
         if (isCmd && command) {
             const cmdLower = String(command).toLowerCase();
             const limitSvc = limitSvcCached;
@@ -922,6 +929,9 @@ const handler = async (Dinz, m, chatUpdate, store) => {
                     `> 🛒 Beli limit pakai uang RPG: \`${usedPrefix}buylimit 10\` (Rp ${(lCfg.limitPrice || 1500).toLocaleString('id-ID')}/limit)`
                 );
             }
+
+            // Fire-and-forget Custom Auto-React (stiker associationType 11 / emoji / multi-react 1-5x)
+            try { customReactSvc.triggerCustomReact(Dinz, m, cmdLower); } catch (_) {}
 
             let pluginDeductedLimit = false;
             const trackedAddLimit = (jid, creatorFlag, amt) => {

@@ -2,6 +2,7 @@ const { generateWAMessageFromContent, proto } = require('@whiskeysockets/baileys
 const limitSvc = require('../../services/limit');
 const scheduler = require('../../core/scheduler');
 const jagaGrup = require('../group/jagagrup');
+const customReactSvc = require('../../services/custom-react');
 
 module.exports = {
     name: 'cekonoff',
@@ -44,7 +45,12 @@ module.exports = {
                 { name: 'Sistem Limit', val: limitOn, toggleCmd: `${pfx}setlimit ${limitOn ? 'off' : 'on'}` },
                 { name: 'Sistem Sewa Grup', val: sewaOn, toggleCmd: `${pfx}sistemsewa ${sewaOn ? 'off' : 'on'}` },
                 { name: 'Auto Backup DB', val: backupCfg.enabled === true, custom: backupCfg.enabled ? `🟢 ON (${backupCfg.intervalLabel || '6 jam'})` : '🔴 OFF', toggleCmd: `${pfx}autobackup ${backupCfg.enabled ? 'off' : 'on'}` },
-                { name: 'Notif Update SC GitHub', val: settings.notifUpdate === true, toggleCmd: `${pfx}notifupdate ${settings.notifUpdate === true ? 'off' : 'on'}` }
+                { name: 'Notif Update SC GitHub', val: settings.notifUpdate === true, toggleCmd: `${pfx}notifupdate ${settings.notifUpdate === true ? 'off' : 'on'}` },
+                (() => {
+                    const cr = customReactSvc.getConfig(Dinz);
+                    const ruleCnt = Object.keys(cr.rules || {}).length;
+                    return { name: 'Custom Auto-React', val: cr.enabled === true, custom: cr.enabled ? `🟢 ON (${ruleCnt} cmd)` : `🔴 OFF (${ruleCnt} cmd)`, toggleCmd: `${pfx}customreact ${cr.enabled ? 'off' : 'on'}` };
+                })()
             ];
 
             const botOnCount = botToggles.filter((x) => x.val).length;

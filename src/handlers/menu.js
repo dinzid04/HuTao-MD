@@ -22,6 +22,23 @@ global.menuai = buildMenuBlock('Menu AI', [
     'translate', 'powerbrain'
 ]);
 
+global.menuanime = buildMenuBlock('Menu Anime', [
+    'anilist', 'topanime', 'anischedule', 'rekomanime', 'tracemoe',
+    'konachan', 'yande', 'animewall', 'kusonime'
+]);
+
+global.menuchannel = buildMenuBlock('Menu Channel', [
+    'idch', 'stalkch', 'chinfo', 'setch 🅞', 'chcreate 🅞', 'chname 🅞',
+    'chdesc 🅞', 'chpp 🅞', 'chfollow 🅞', 'chunfollow 🅞', 'chmute 🅞',
+    'chunmute 🅞', 'chptv 🅞', 'chvn 🅞', 'kirimch 🅞', 'sendch 🅞',
+    'fwdch 🅞', 'playch 🅞'
+]);
+
+global.menuroleplay = buildMenuBlock('Menu Roleplay', [
+    'hug', 'pat', 'kiss', 'slap', 'cuddle', 'poke', 'blush', 'bonk',
+    'bite', 'dance', 'rpprofile', 'rpmood', 'rpact'
+]);
+
 global.menuam = buildMenuBlock('Menu Alight Motion', [
     'amprem', 'bulkam', 'setam 🅞', 'addptam 🅞',
     'delptam 🅞', 'listptam 🅞', 'statusbulkam', 'addreselleram', 'delreselleram',
@@ -102,7 +119,8 @@ global.menufun = buildMenuBlock('Menu Fun', [
     'cekwibu', 'confess', 'cekbaper', 'cekbucin', 'cekgabut', 'cekgamer',
     'cekjodoh', 'ceknolep', 'cekpacar', 'ceksange', 'ceksetia', 'ceksigma',
     'cektolol', 'haruskah', 'cekcantik', 'cekkhodam', 'cekjomblo',
-    'cekpintar', 'faktaunik', 'soulmatch', 'cekbirahi', 'cekganteng', 'balasconfess'
+    'cekpintar', 'faktaunik', 'soulmatch', 'cekbirahi', 'cekganteng', 'balasconfess',
+    'puisi', 'renungan', 'top5', 'birthday', 'setbirthday', 'birthdaylist', 'rules'
 ]);
 
 global.menugame = buildMenuBlock('Menu Game', [
@@ -114,7 +132,8 @@ global.menugame = buildMenuBlock('Menu Game', [
     'tebakjorok', 'tebakkimia', 'tebaklirik', 'ulartangga', 'minesweeper',
     'sambungkata', 'siapakahaku', 'tebakanime', 'tebakgambar', 'tebaknegara',
     'tebakbendera', 'tebakinggris', 'tebakkalimat', 'tebakmakanan', 'tebakprofesi',
-    'tebaktebakan', 'tebakgenshin', 'lengkapikalimat'
+    'tebaktebakan', 'tebakgenshin', 'lengkapikalimat',
+    'bomb', 'hangman', 'mathquiz', 'tebakangka', 'tebakemoji', 'stopgame'
 ]);
 
 global.menugroup = buildMenuBlock('Menu Group', [
@@ -168,7 +187,8 @@ global.menuinspector = buildMenuBlock('Menu LID Inspector', [
 
 global.menumaker = buildMenuBlock('Menu Maker', [
     'hd', 'iqc', 'fakeff', 'fakeml', 'fakewa', 'remini', 'tobotak', 'tohitam',
-    'removebg', 'bananagen', 'tofigure 🅟'
+    'removebg', 'bananagen', 'tofigure 🅟',
+    'musiccard', 'fakespotify', 'topixel', 'darkness', 'kalender', 'fakefbkomen'
 ]);
 
 global.menuowner = buildMenuBlock('Menu Owner', [
@@ -185,6 +205,8 @@ global.menuowner = buildMenuBlock('Menu Owner', [
     'autotyping 🅞', 'readsw 🅞', 'kirimch 🅞', 'sendch 🅞', 'fwdch 🅞',
     'getsw 🅞', 'listsw 🅞',
     'backupsesi 🅞', 'restoresesi 🅞', 'syncsesi 🅞', 'backupclone 🅞',
+    'customreact 🅞', 'addreact 🅞', 'setreact 🅞', 'delreact 🅞', 'listreact 🅞',
+    'clearreact 🅞', 'reactcount 🅞', 'savereact 🅞', 'setrules 🅞',
     'addmoney 🅞', 'delmoney 🅞', 'addbank 🅞', 'addexp 🅞', 'addlevel 🅞',
     'setlevel 🅞', 'adddiamond 🅞', 'addgold 🅞', 'addpotion 🅞', 'additem 🅞', 'delitem 🅞'
 ]);
@@ -233,23 +255,27 @@ global.menurpg = buildMenuBlock('Menu RPG', [
 global.menusearch = buildMenuBlock('Menu Search', [
     'ptv', 'yts', 'play', 'anime', 'chord', 'lirik', 'sfile', 'waifu', 'berita',
     'gimage', 'playch 🅞', 'asupan 🅟', 'happymod', 'pinterest', 'playstore',
-    'playtiktok', 'tiktoksearch'
+    'playtiktok', 'tiktoksearch',
+    'wiki', 'kripto', 'nasa', 'detik', 'cookpad', 'mcpedl', 'hokchar'
 ]);
 
 global.menustalk = buildMenuBlock('Menu Stalk', [
     'ffstalk', 'igstalk', 'wastalk', 'npmstalk', 'mlbbstalk', 'githubstalk',
-    'robloxstalk', 'tiktokstalk', 'telegramstalk'
+    'robloxstalk', 'tiktokstalk', 'telegramstalk', 'ytstalk'
 ]);
 
 global.menusticker = buildMenuBlock('Menu Stiker', [
     's', 'qc', 'swm', 'brat', 'sreact', 'stiker', 'saudio', 'qcpink', 'bratvid', 'qchitam',
     'qcputih', 'sticker', 'stikerly', 'bratgura', 'bratpink', 'emojigif', 'emojimix',
-    'bratanime', 'stikerlydl', 'bratgambar', 'bratgambarhd'
+    'bratanime', 'stikerlydl', 'bratgambar', 'bratgambarhd',
+    'smeme', 'ttp', 'attp', 'bratgreen'
 ]);
 
 global.menuaudio = buildMenuBlock('Menu Audio Studio', [
     '8d', 'robot', 'slowed', 'reverb', 'reverse', 'cutaudio', 'chipmunk',
-    'bassboost', 'deepvoice', 'nightcore'
+    'bassboost', 'deepvoice', 'nightcore',
+    'echo', 'earrape', 'fast', 'slow', 'fat', 'blown', 'smooth', 'tupai',
+    'pitch', 'flanger', 'chorus', 'tremolo', 'distortion', 'apulsator'
 ]);
 
 global.menulist = buildMenuBlock('Menu Store', [
@@ -266,7 +292,11 @@ global.menutools = buildMenuBlock('Menu Tools', [
     'tovideo', 'wastalk', 'esmtocjs', 'cjstoesm', 'harilibur', 'nikparser',
     'pomodoro', 'qrcustom', 'readmore', 'spamngl', 'carifitur', 'dnslookup',
     'livescore', 'shortlink', 'whatmusic', 'cekphising', 'text2sound',
-    'toprompt 🅟', 'infotourney', 'font1 - font10', 'sound1 - sound200'
+    'toprompt 🅟', 'infotourney', 'font1 - font10', 'sound1 - sound200',
+    'calc', 'base64', 'text2biner', 'biner2text', 'barcode', 'kurs', 'jarak',
+    'cekoperator', 'cekplat', 'kodebahasa', 'kodewilayah', 'cekwa', 'cekbio',
+    'getpp', 'toptv', 'tofile', 'compress', 'compressvid', 'img2pdf',
+    'speedtest', 'clonesite', 'cariloker', 'ingatkan', 'listingat', 'delingat'
 ]);
 
 global.menusewa = global.menugroup;
@@ -275,16 +305,19 @@ global.menugc = global.menuowner;
 global.mainmenu = buildMenuBlock('Daftar Menu', [
     'allmenu', 'menu ai', 'menu am', 'menu enc', 'menu fun', 'menu jpm', 'menu lid',
     'menu rpg', 'menu call', 'menu clan', 'menu game', 'menu join', 'menu rich',
-    'menu audio', 'menu extra', 'menu group', 'menu jagagrup', 'menu maker', 'menu owner', 'menu setup', 'menu stalk',
-    'menu store', 'menu tools', 'menu cloner', 'menu ephoto', 'menu islami', 'menu search',
-    'menu stiker', 'menu jadibot', 'menu premium', 'menu primbon', 'menu download',
+    'menu anime', 'menu audio', 'menu extra', 'menu group', 'menu jagagrup', 'menu maker',
+    'menu owner', 'menu setup', 'menu stalk', 'menu store', 'menu tools', 'menu cloner',
+    'menu ephoto', 'menu islami', 'menu search', 'menu stiker', 'menu channel',
+    'menu jadibot', 'menu premium', 'menu primbon', 'menu download', 'menu roleplay',
     'menu cpanel v1', 'menu cpanel v2', 'menu cpanel v3'
 ]);
 
 global.allmenu = [
     global.menuai,
+    global.menuanime,
     global.menuam,
     global.menuaudio,
+    global.menuchannel,
     global.menujoin,
     global.menucall,
     global.menuclan,
@@ -308,6 +341,7 @@ global.allmenu = [
     global.menuprem,
     global.menuprimbon,
     global.menurich,
+    global.menuroleplay,
     global.menurpg,
     global.menusearch,
     global.menusetup,

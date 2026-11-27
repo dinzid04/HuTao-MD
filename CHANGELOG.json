@@ -1,15 +1,20 @@
 {
-  "version": "1.4.1",
+  "version": "1.5.0",
   "updatedAt": "2026-11-27",
-  "summary": "Fix Install Cepat Termux (hutao-baileys v8.7.1 Anti-ETIMEDOUT & Sharp Opsional) + Auto-Install & Auto-Heal Modul Otomatis",
+  "summary": "Custom Auto-React Stiker/Emoji per Command, Full Button Setmenu 8 Ala Elsyaa, dan 95+ Fitur Baru Lulus Audit Live (Anime, Channel, Roleplay, Audio Studio, Game, Sticker, Maker, Search, Tools)",
   "added": [
-    "Sistem Auto-Install & Auto-Heal modul otomatis di index.js & termux-start.sh: mengecek seluruh dependencies di package.json saat startup maupun saat error MODULE_NOT_FOUND, lalu otomatis menginstal ulang modul yang kurang dengan retry otomatis (anti-loop untuk modul native opsional)"
+    "Fitur Custom Auto-React (.customreact, .addreact, .setreact, .reactcount, .savereact, .listreact, .delreact, .clearreact): mendukung sticker reaction native (associationType 11) dari reply stiker/foto/video + emoji, target spesifik per command atau 'all', jumlah react kustom (1-5x), library preset stiker lokal anti-expired, dan terintegrasi di .cekonoff",
+    "Kategori baru Menu Anime (.menu anime): .anilist, .topanime, .anischedule, .rekomanime, .tracemoe, .konachan, .yande, .animewall, .kusonime (100% API aktif & terverifikasi live)",
+    "Kategori baru Menu Channel (.menu channel): .idch, .stalkch, .chinfo, .setch, .chcreate, .chname, .chdesc, .chpp, .chfollow, .chunfollow, .chmute, .chunmute, .chptv, .chvn",
+    "Kategori baru Menu Roleplay (.menu roleplay): .hug, .pat, .kiss, .slap, .cuddle, .poke, .blush, .bonk, .bite, .dance, .rpprofile, .rpmood, .rpact dengan animasi GIF aktif (nekos.best + otakugifs fallback)",
+    "14 efek baru Menu Audio Studio FFmpeg: .echo, .earrape, .fast, .slow, .fat, .blown, .smooth, .tupai, .pitch, .flanger, .chorus, .tremolo, .distortion, .apulsator",
+    "Mini-game baru 100% lokal: .bomb, .hangman, .mathquiz, .tebakangka, .tebakemoji, .stopgame",
+    "Sticker, Maker, Search, Stalk, Tools & Fun baru bebas duplikat & lulus audit live: .smeme, .ttp, .attp, .bratgreen, .musiccard, .fakespotify, .topixel, .darkness, .kalender, .fakefbkomen, .wiki, .kripto, .nasa, .detik, .cookpad, .mcpedl, .hokchar, .ytstalk, .calc, .base64, .text2biner, .biner2text, .barcode, .kurs, .jarak, .cekoperator, .cekplat, .kodebahasa, .kodewilayah, .cekwa, .cekbio, .getpp, .toptv, .tofile, .compress, .compressvid, .img2pdf, .speedtest, .clonesite, .cariloker, .ingatkan/.listingat/.delingat, .birthday/.setbirthday/.birthdaylist, .puisi, .renungan, .top5, .rules/.setrules"
   ],
   "fixed": [
-    "Perbaikan dinzid04/hutao-baileys v8.7.1: menghapus script prepare/prepack & devDependencies lama agar npm install tidak lagi gagal 'git dep preparation failed / ETIMEDOUT' dan proses install jadi jauh lebih cepat",
-    "Perbaikan crash 'Cannot find module sharp' di Termux Android ARM64 pada MessageBuilder.js (baik di fork hutao-baileys v8.7.1 maupun patch kompatibilitas otomatis di index.js)"
+    "Perbaikan .setmenu 8 (Elsyaa Style): kini menampilkan FULL set button ala Elsyaa (Menu single_select + Support single_select + Contact Owner CTA URL + limited_time_offer) pada .menu, .allmenu, maupun .menu <kategori>, tetap mempertahankan 100% teks, font, dan tata letak default HuTao - MD"
   ],
   "changed": [
-    "Flag npm install pada prestart, index.js, dan termux-start.sh kini dilengkapi --fetch-retries=5 serta timeout lebih panjang agar tahan jaringan seluler yang tidak stabil"
+    "Seluruh fitur portingan telah diaudit live — endpoint/API pihak ketiga yang mati (404/500/timeout) tidak dimasukkan atau diganti ke sumber resmi yang aktif agar tidak ada fitur pajangan"
   ]
 }

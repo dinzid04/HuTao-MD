@@ -1,12 +1,17 @@
+const customReact = require('../../services/custom-react');
+
 module.exports = {
     name: 'menu',
     category: 'menu',
     commands: ['menu', 'listmenu', 'help'],
 
     async execute(ctx) {
-        const { Dinz, m, args, text, Reply, menureply, sendMenuAudio, formatWithPrefix } = ctx;
+        const { Dinz, m, args, command, text, Reply, menureply, sendMenuAudio, formatWithPrefix } = ctx;
+        const hasCustomReact = customReact.hasCustomReactFor(Dinz, command || 'menu');
 
-        await Dinz.sendMessage(m.chat, { react: { text: '⏳', key: m.key } }).catch(() => {});
+        if (!hasCustomReact) {
+            await Dinz.sendMessage(m.chat, { react: { text: '⏳', key: m.key } }).catch(() => {});
+        }
         try {
             const sub = (args[0] || '').toLowerCase();
             if (sub === 'group' || sub === 'grup' || sub === 'gc') {
@@ -81,6 +86,12 @@ module.exports = {
                 await menureply(global.menucloner);
             } else if (sub === 'audio' || sub === 'audiofx' || sub === 'efekaudio') {
                 await menureply(global.menuaudio);
+            } else if (sub === 'anime' || sub === 'wibu') {
+                await menureply(global.menuanime);
+            } else if (sub === 'channel' || sub === 'saluran' || sub === 'ch') {
+                await menureply(global.menuchannel);
+            } else if (sub === 'roleplay' || sub === 'rp') {
+                await menureply(global.menuroleplay);
             } else if (sub === 'all' || sub === 'allmenu' || sub === 'semua') {
                 await menureply(global.allmenu, { isAllMenu: true });
                 await sendMenuAudio();
@@ -88,12 +99,16 @@ module.exports = {
                 await menureply('', { isMainMenu: true });
                 await sendMenuAudio();
             }
-            await Dinz.sendMessage(m.chat, { react: { text: '✅', key: m.key } }).catch(() => {});
+            if (!hasCustomReact) {
+                await Dinz.sendMessage(m.chat, { react: { text: '✅', key: m.key } }).catch(() => {});
+            }
         } catch (err) {
             console.log('menu error:', err.message);
             await Reply(formatWithPrefix(global.mainmenu || global.allmenu));
             await sendMenuAudio();
-            await Dinz.sendMessage(m.chat, { react: { text: '✅', key: m.key } }).catch(() => {});
+            if (!hasCustomReact) {
+                await Dinz.sendMessage(m.chat, { react: { text: '✅', key: m.key } }).catch(() => {});
+            }
         }
         return true;
     }

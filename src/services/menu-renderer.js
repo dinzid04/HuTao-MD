@@ -90,11 +90,14 @@ const MENU_CATEGORIES = [
     { group: 'main', title: 'Menu LID Inspector', emoji: '🪪', cmd: 'menu-lid', desc: 'Cek LID, JID & WA Stalk' },
     { group: 'main', title: 'Menu Clan', emoji: '⚔️', cmd: 'menu-clan', desc: 'Guild & Clan War' },
     { group: 'feature', title: 'Menu AI', emoji: '🤖', cmd: 'menu-ai', desc: 'Gemini, ChatGPT, DeepSeek, Flux, dll' },
-    { group: 'feature', title: 'Menu Audio Studio', emoji: '🎧', cmd: 'menu-audio', desc: 'Bassboost, Slowed, Nightcore, 8D, CutAudio' },
+    { group: 'feature', title: 'Menu Anime', emoji: '🍥', cmd: 'menu-anime', desc: 'AniList, Top Anime, Jadwal, TraceMoe, Konachan' },
+    { group: 'feature', title: 'Menu Audio Studio', emoji: '🎧', cmd: 'menu-audio', desc: '24 Efek Audio FFmpeg (Bassboost, Echo, Earrape, dll)' },
+    { group: 'feature', title: 'Menu Channel', emoji: '📢', cmd: 'menu-channel', desc: 'IDCH, StalkCH, Buat/Kelola Saluran WA' },
     { group: 'feature', title: 'Menu Call', emoji: '📹', cmd: 'menu-call', desc: 'PlayCall Video & Musik YouTube' },
     { group: 'feature', title: 'Menu Download', emoji: '📥', cmd: 'menu-download', desc: 'YouTube, YTMusic, TikTok, IG, dll' },
-    { group: 'feature', title: 'Menu Search', emoji: '🔍', cmd: 'menu-search', desc: 'Play, YTS, Pinterest, Lirik, dll' },
-    { group: 'feature', title: 'Menu Stiker', emoji: '🖼️', cmd: 'menu-stiker', desc: 'Sticker, Brat, QC, Stiker.ly, SReact' },
+    { group: 'feature', title: 'Menu Search', emoji: '🔍', cmd: 'menu-search', desc: 'Play, YTS, Wiki, Kripto, NASA, Detik, Cookpad' },
+    { group: 'feature', title: 'Menu Roleplay', emoji: '🎭', cmd: 'menu-roleplay', desc: 'Hug, Pat, Kiss, Slap, Cuddle, RP Profile & Mood' },
+    { group: 'feature', title: 'Menu Stiker', emoji: '🖼️', cmd: 'menu-stiker', desc: 'Sticker, Brat, QC, Smeme, TTP, ATTP, SReact' },
     { group: 'feature', title: 'Menu Maker', emoji: '🎨', cmd: 'menu-maker', desc: 'HD, Remini, RemoveBG, IQC' },
     { group: 'feature', title: 'Menu Ephoto360', emoji: '✨', cmd: 'menu-ephoto', desc: 'Efek Teks Ephoto360' },
     { group: 'feature', title: 'Menu RPG', emoji: '🗡️', cmd: 'menu-rpg', desc: 'Petualangan, Shop, BuyLimit, Leaderboard' },
@@ -1052,111 +1055,55 @@ async function sendStyledMenu({
 
         if (styleId === 8) {
             const { generateWAMessageFromContent, prepareWAMessageMedia } = require('@whiskeysockets/baileys');
-            const nowTz = moment().tz(global.timezone || 'Asia/Jakarta');
-            const timeDot = nowTz.format('HH.mm');
-            const uptimeStr = formatUptime(process.uptime());
             const ownerNumber = String(identity.owner || global.owner || '').replace(/[^0-9]/g, '');
 
             const catRows = MENU_CATEGORIES.filter((c) => c.cmd !== 'allmenu').map((c) => ({
-                title: `${c.emoji || '▪'} ${toSmallCaps(c.title)}`,
-                description: toSmallCaps(c.desc),
+                title: `${c.emoji || '▪'} ${c.title.toUpperCase()}`,
+                description: c.desc,
                 id: prefixCmd(c.cmd, activePrefix)
             }));
 
-            // AllMenu / Menu Kategori: teks & font 100% default HuTao (cleanCaption),
-            // hanya tampilan banner location thumbnail + 1 tombol lebar "☰ Menu" yang mengikuti gaya Elsyaa.
-            if (categoryTeks) {
-                const chunkedSections = [];
-                for (let i = 0; i < catRows.length; i += 10) {
-                    chunkedSections.push({
-                        title: i === 0 ? toSmallCaps('pilih kategori') : `${toSmallCaps('kategori lanjutan')} ${Math.floor(i / 10) + 1}`,
-                        rows: catRows.slice(i, i + 10)
-                    });
-                }
-                const paramsJson = JSON.stringify({ title: `☰ ${toSmallCaps('Menu')}`, sections: chunkedSections });
-                const locThumb = await makeThumbBuffer(imageBuffer, 300, 170, 72);
-                const msgTs = m.messageTimestamp ? Number(m.messageTimestamp) * 1000 : Date.now();
-                const pingMs = Math.max(1, Math.min(9999, Math.abs(Date.now() - msgTs)));
-
-                // Pisahkan bagian header default HuTao dan daftar command agar tidak dobel dan 100% tetap layout default HuTao
-                const splitIdx = cleanCaption.indexOf('\n\n`[');
-                const contentPart = splitIdx > 0 ? cleanCaption.slice(0, splitIdx) : cleanCaption;
-                const footerPart = splitIdx > 0 ? cleanCaption.slice(splitIdx + 2) : `© ${botFooterSmallCaps}`;
-
-                await Dinz.relayMessage(
-                    m.chat,
-                    {
-                        buttonsMessage: {
-                            buttons: [
-                                {
-                                    buttonId: 'pilihan_menu',
-                                    buttonText: { displayText: `☰ ${toSmallCaps('Menu')}` },
-                                    type: 1,
-                                    nativeFlowInfo: {
-                                        name: 'single_select',
-                                        paramsJson
-                                    }
-                                }
-                            ],
-                            locationMessage: {
-                                name: botFooterSmallCaps,
-                                address: `⏱ ${uptimeStr} • ${timeDot} WIB • ${pingMs}ms`,
-                                ...(locThumb ? { jpegThumbnail: locThumb } : {})
-                            },
-                            contentText: contentPart,
-                            footerText: footerPart,
-                            contextInfo: {
-                                ...(mentions.length ? { mentionedJid: mentions } : {}),
-                                forwardingScore: 777,
-                                isForwarded: true
-                            },
-                            headerType: 6,
-                            messageContextInfo: {
-                                deviceListMetadata: {},
-                                deviceListMetadataVersion: 2
-                            }
-                        }
-                    },
-                    { AI: false }
-                );
-                await sendExtraMenuPages(Dinz, m, extraPages);
-                return;
-            }
-
-            // Menu Utama: teks & font 100% default HuTao (cleanCaption),
-            // hanya gambar header + style tombol (spacer + Menu + Support + CTA URL + limited_time_offer) ala Elsyaa.
+            // FULL Button Elsyaa untuk SEMUA tampilan (.menu, .allmenu, dan .menu <kategori>),
+            // dengan teks, font, dan tata letak 100% default HuTao - MD (cleanCaption)!
             const mainQuickRows = [
-                { title: `📚 ${toSmallCaps('All Menu')}`, description: toSmallCaps(`Lihat semua ${totalFitur} fitur bot`), id: prefixCmd('allmenu', activePrefix) },
-                { title: `🛡️ ${toSmallCaps('Menu Jaga Grup')}`, description: toSmallCaps('Panel button proteksi grup lengkap'), id: prefixCmd('menu-jagagrup', activePrefix) },
-                { title: `🎮 ${toSmallCaps('Rich Game')}`, description: toSmallCaps('Flappy Bird, Chess, 2048, Wordle, dll'), id: prefixCmd('richgame', activePrefix) },
-                { title: `👑 ${toSmallCaps('Owner Bot')}`, description: toSmallCaps(`Hubungi ${ownerName}`), id: prefixCmd('owner', activePrefix) }
+                { title: 'All Menu', description: `Lihat semua ${totalFitur} fitur bot`, id: prefixCmd('allmenu', activePrefix) },
+                { title: 'Menu Jaga Grup', description: 'Panel button proteksi grup lengkap', id: prefixCmd('menu-jagagrup', activePrefix) },
+                { title: 'Profile', description: 'Lihat informasi profil & level RPG kamu', id: prefixCmd('profile', activePrefix) },
+                { title: 'Owner Bot', description: `Hubungi ${ownerName}`, id: prefixCmd('owner', activePrefix) }
             ];
 
+            // Chunk kategori agar rapi & tidak melebihi batas baris WhatsApp per section
+            const menuSections = [{ title: 'MAIN MENU', rows: mainQuickRows }];
+            for (let i = 0; i < catRows.length; i += 10) {
+                menuSections.push({
+                    title: i === 0 ? 'KATEGORI FITUR' : `KATEGORI FITUR ${Math.floor(i / 10) + 1}`,
+                    rows: catRows.slice(i, i + 10)
+                });
+            }
+
             const elsyaaButtons = [
-                { name: '', buttonParamsJson: '' },
+                { name: '' },
                 {
                     name: 'single_select',
                     buttonParamsJson: JSON.stringify({
-                        title: toSmallCaps('Menu'),
-                        sections: [
-                            { title: toSmallCaps('main menu'), rows: mainQuickRows },
-                            { title: toSmallCaps('kategori fitur'), rows: catRows }
-                        ],
+                        title: 'Menu',
+                        sections: menuSections,
                         icon: 'DEFAULT'
                     })
                 },
-                { name: '', buttonParamsJson: '' },
+                { name: '' },
                 {
                     name: 'single_select',
                     buttonParamsJson: JSON.stringify({
-                        title: toSmallCaps('Support'),
+                        title: 'Support',
                         sections: [
                             {
-                                title: toSmallCaps(`support ${botname}`),
+                                title: `SUPPORT ${String(botname || 'HuTao - MD').toUpperCase()}`,
                                 rows: [
-                                    { title: `👑 ${toSmallCaps('Contact Owner')}`, description: toSmallCaps('Chat langsung dengan owner'), id: prefixCmd('owner', activePrefix) },
-                                    { title: `⚙️ ${toSmallCaps('Cek On/Off Bot')}`, description: toSmallCaps('Status setting bot & grup'), id: prefixCmd('cekonoff', activePrefix) },
-                                    { title: `🎨 ${toSmallCaps('Ganti Style Menu')}`, description: toSmallCaps('Ubah tema tampilan menu (Owner)'), id: prefixCmd('setmenu', activePrefix) }
+                                    { title: 'Contact Owner', description: 'Chat langsung dengan pengembang bot', id: prefixCmd('owner', activePrefix) },
+                                    { title: 'Cek ON/OFF Bot', description: 'Status setting global bot & grup', id: prefixCmd('cekonoff', activePrefix) },
+                                    { title: 'Custom Auto-React', description: 'Atur stiker/emoji react per command', id: prefixCmd('customreact', activePrefix) },
+                                    { title: 'Ganti Style Menu', description: 'Ubah tema tampilan menu (Owner)', id: prefixCmd('setmenu', activePrefix) }
                                 ]
                             }
                         ],
@@ -1166,7 +1113,7 @@ async function sendStyledMenu({
                 {
                     name: 'cta_url',
                     buttonParamsJson: JSON.stringify({
-                        display_text: toSmallCaps('Contact Owner'),
+                        display_text: 'Contact Owner',
                         url: ownerNumber ? `https://wa.me/${ownerNumber}` : 'https://whatsapp.com',
                         merchant_url: ownerNumber ? `https://wa.me/${ownerNumber}` : 'https://whatsapp.com'
                     })
@@ -1179,6 +1126,9 @@ async function sendStyledMenu({
                     ? await prepareWAMessageMedia({ image: imageBuffer }, { upload: Dinz.waUploadToServer })
                     : await prepareWAMessageMedia({ image: { url: imageUrl } }, { upload: Dinz.waUploadToServer });
             } catch (_) {}
+
+            const newsletterJid = String(global.autoFollowNewsletterId || '').split(/[\s,;]+/)[0] || '';
+            const hasValidNewsletter = /^\d+@newsletter$/.test(newsletterJid);
 
             const elsyaaMsg = generateWAMessageFromContent(
                 m.chat,
@@ -1203,7 +1153,14 @@ async function sendStyledMenu({
                         contextInfo: {
                             ...(mentions.length ? { mentionedJid: mentions } : {}),
                             forwardingScore: 1,
-                            isForwarded: true
+                            isForwarded: true,
+                            ...(hasValidNewsletter ? {
+                                forwardedNewsletterMessageInfo: {
+                                    newsletterJid,
+                                    newsletterName: botname,
+                                    serverMessageId: 127
+                                }
+                            } : {})
                         }
                     }
                 },
