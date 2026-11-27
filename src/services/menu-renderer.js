@@ -195,7 +195,7 @@ function normalizeMenuItemText(rawItem) {
     return trimmed;
 }
 
-function formatMenuItemLine(rawItem, activePrefix) {
+function formatMenuItemInline(rawItem, activePrefix) {
     const compact = normalizeMenuItemText(rawItem);
     if (!compact) return '';
     const prefixed = prefixCmd(compact, activePrefix);
@@ -204,9 +204,15 @@ function formatMenuItemLine(rawItem, activePrefix) {
     if (parenIdx > 0) {
         const mainPart = prefixed.slice(0, parenIdx).trim();
         const notePart = prefixed.slice(parenIdx).trim();
-        return `> ◦ ${toMono(mainPart)} _${toSmallCaps(notePart)}_`;
+        return `${toMono(mainPart)} _${toSmallCaps(notePart)}_`;
     }
-    return `> ◦ ${toMono(prefixed)}`;
+    return toMono(prefixed);
+}
+
+function formatMenuItemLine(rawItem, activePrefix) {
+    const inline = formatMenuItemInline(rawItem, activePrefix);
+    if (!inline) return '';
+    return `> ◦ ${inline}`;
 }
 
 function parseShikiMenuBlocks(rawText) {
@@ -294,16 +300,49 @@ function sortMenuItems(items) {
 }
 
 // WhatsApp membatasi maksimal ~500 baris blockquote (`> `) dalam 1 pesan.
-// Jika melebihi batas itu, sisa baris `> ` di bawahnya tidak dirender jadi garis quote
-// melainkan muncul huruf `>` mentah. Batas 400 baris per pesan menjaga 100% baris tetap rapi.
-const MAX_WA_QUOTE_LINES = 400;
+// Agar allmenu tetap menyatu dalam 1 pesan penuh tanpa bug `>` mentah,
+// jika total baris `> ` melebihi 450 maka beberapa command dipadatkan per baris (2-3 kolom).
+const MAX_WA_QUOTE_LINES = 450;
 
 function countQuoteLines(text) {
     const matches = String(text || '').match(/^>\s/gm);
     return matches ? matches.length : 0;
 }
 
-function buildFormattedBlockEntries(blocks, activePrefix, { sortBlocksAlpha = false } = {}) {
+function buildBlockLines(sortedItems, activePrefix, itemsPerLine = 1) {
+    if (itemsPerLine <= 1) {
+        return sortedItems.map((item) => {
+            if (item.type === 'sub') return `> *${toSmallCaps(item.text)}*`;
+            return formatMenuItemLine(item.text, activePrefix);
+        }).filter(Boolean);
+    }
+
+    const lines = [];
+    let row = [];
+    const flushRow = () => {
+        if (!row.length) return;
+        lines.push(`> ◦ ${row.join('  ·  ')}`);
+        row = [];
+    };
+
+    for (const item of sortedItems) {
+        if (item.type === 'sub') {
+            flushRow();
+            lines.push(`> *${toSmallCaps(item.text)}*`);
+            continue;
+        }
+        const inline = formatMenuItemInline(item.text, activePrefix);
+        if (!inline) continue;
+        row.push(inline);
+        if (row.length >= itemsPerLine) {
+            flushRow();
+        }
+    }
+    flushRow();
+    return lines;
+}
+
+function buildFormattedBlockEntries(blocks, activePrefix, { sortBlocksAlpha = false, itemsPerLine = 1 } = {}) {
     const orderedBlocks = sortBlocksAlpha
         ? [...blocks].sort((a, b) => {
             const nameA = String(a.title || '').replace(/^menu\s+/i, '').trim();
@@ -315,32 +354,17 @@ function buildFormattedBlockEntries(blocks, activePrefix, { sortBlocksAlpha = fa
     const entries = [];
     for (const block of orderedBlocks) {
         const sortedItems = sortMenuItems(block.items);
-        const rawLines = sortedItems.map((item) => {
-            if (item.type === 'sub') return `> *${toSmallCaps(item.text)}*`;
-            return formatMenuItemLine(item.text, activePrefix);
-        }).filter(Boolean);
-
-        if (rawLines.length <= MAX_WA_QUOTE_LINES - 20) {
-            const header = formatSectionHeader(block.title, { stripMenuPrefix: true });
-            const text = `${header}\n${rawLines.join('\n')}`;
-            entries.push({ text, quoteLines: countQuoteLines(text) });
-        } else {
-            const chunkSize = MAX_WA_QUOTE_LINES - 24;
-            const totalParts = Math.ceil(rawLines.length / chunkSize);
-            for (let i = 0; i < totalParts; i++) {
-                const slice = rawLines.slice(i * chunkSize, (i + 1) * chunkSize);
-                const partTitle = `${block.title} ${i + 1}/${totalParts}`;
-                const header = formatSectionHeader(partTitle, { stripMenuPrefix: true });
-                const text = `${header}\n${slice.join('\n')}`;
-                entries.push({ text, quoteLines: countQuoteLines(text) });
-            }
-        }
+        const rawLines = buildBlockLines(sortedItems, activePrefix, itemsPerLine);
+        if (!rawLines.length) continue;
+        const header = formatSectionHeader(block.title, { stripMenuPrefix: true });
+        const text = `${header}\n${rawLines.join('\n')}`;
+        entries.push({ text, quoteLines: countQuoteLines(text) });
     }
     return entries;
 }
 
-function formatBlocksCleanHutao(blocks, activePrefix, { sortBlocksAlpha = false } = {}) {
-    return buildFormattedBlockEntries(blocks, activePrefix, { sortBlocksAlpha })
+function formatBlocksCleanHutao(blocks, activePrefix, { sortBlocksAlpha = false, itemsPerLine = 1 } = {}) {
+    return buildFormattedBlockEntries(blocks, activePrefix, { sortBlocksAlpha, itemsPerLine })
         .map((e) => e.text)
         .join('\n\n');
 }
@@ -459,57 +483,29 @@ function buildCleanHutaoMenuPages({
             return [`${header}${sectionLead}${categoryTeks}${footerNote}`];
         }
 
-        const entries = buildFormattedBlockEntries(blocks, activePrefix, {
-            sortBlocksAlpha: isAllMenu || blocks.length > 1
-        });
         const headerQuoteCount = countQuoteLines(header);
         const footerQuoteCount = countQuoteLines(footerNote);
-        const totalBlockQuotes = entries.reduce((acc, e) => acc + e.quoteLines, 0);
+        const sortAlpha = isAllMenu || blocks.length > 1;
 
-        if (headerQuoteCount + totalBlockQuotes + footerQuoteCount <= MAX_WA_QUOTE_LINES) {
-            const formatted = entries.map((e) => e.text).join('\n\n');
-            const readmore = useReadmore ? `\n${String.fromCharCode(8206).repeat(4001)}\n` : '\n\n';
-            const sectionLead = isAllMenu
-                ? `\n\n${formatSectionHeader('ALL MENU')}${useReadmore ? `\n_${toSmallCaps('tap baca selengkapnya')}_${readmore}` : '\n\n'}`
-                : '\n\n';
-            return [`${header}${sectionLead}${formatted}${footerNote}`];
-        }
-
-        const chunks = [];
-        let curChunk = [];
-        let curQuotes = headerQuoteCount;
-
-        for (const entry of entries) {
-            const limitForChunk = chunks.length === 0 ? MAX_WA_QUOTE_LINES : MAX_WA_QUOTE_LINES - footerQuoteCount;
-            if (curChunk.length > 0 && curQuotes + entry.quoteLines > limitForChunk) {
-                chunks.push(curChunk.map((e) => e.text).join('\n\n'));
-                curChunk = [entry];
-                curQuotes = entry.quoteLines;
-            } else {
-                curChunk.push(entry);
-                curQuotes += entry.quoteLines;
+        let chosenEntries = null;
+        for (const perLine of [1, 2, 3, 4]) {
+            const candidate = buildFormattedBlockEntries(blocks, activePrefix, {
+                sortBlocksAlpha: sortAlpha,
+                itemsPerLine: perLine
+            });
+            const totalQuotes = headerQuoteCount + candidate.reduce((acc, e) => acc + e.quoteLines, 0) + footerQuoteCount;
+            chosenEntries = candidate;
+            if (totalQuotes <= MAX_WA_QUOTE_LINES) {
+                break;
             }
         }
-        if (curChunk.length > 0) {
-            chunks.push(curChunk.map((e) => e.text).join('\n\n'));
-        }
 
-        const totalPages = chunks.length;
+        const formatted = (chosenEntries || []).map((e) => e.text).join('\n\n');
         const readmore = useReadmore ? `\n${String.fromCharCode(8206).repeat(4001)}\n` : '\n\n';
-        return chunks.map((chunkBody, idx) => {
-            const partNum = idx + 1;
-            const partTag = isAllMenu ? `ALL MENU ${partNum}/${totalPages}` : `MENU ${partNum}/${totalPages}`;
-            if (idx === 0) {
-                const sectionLead = `\n\n${formatSectionHeader(partTag)}${useReadmore ? `\n_${toSmallCaps('tap baca selengkapnya')}_${readmore}` : '\n\n'}`;
-                const nextHint = `\n\n_${toSmallCaps(`lanjutan di pesan berikutnya (${partNum}/${totalPages})`)}_`;
-                return `${header}${sectionLead}${chunkBody}${totalPages > 1 ? nextHint : footerNote}`;
-            }
-            const isLast = idx === totalPages - 1;
-            const tail = isLast
-                ? footerNote
-                : `\n\n_${toSmallCaps(`lanjutan di pesan berikutnya (${partNum}/${totalPages})`)}_`;
-            return `${formatSectionHeader(partTag)}\n\n${chunkBody}${tail}`;
-        });
+        const sectionLead = isAllMenu
+            ? `\n\n${formatSectionHeader('ALL MENU')}${useReadmore ? `\n_${toSmallCaps('tap baca selengkapnya')}_${readmore}` : '\n\n'}`
+            : '\n\n';
+        return [`${header}${sectionLead}${formatted}${footerNote}`];
     }
 
     const catList = buildMainMenuCategoryList(activePrefix);

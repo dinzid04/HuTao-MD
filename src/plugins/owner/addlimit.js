@@ -8,19 +8,26 @@ module.exports = {
 
         if (!isCreator) return Reply(global.mess.owner);
 
-        const rawTarget = m.mentionedJid?.[0] || (m.quoted ? m.quoted.sender : null) || args[0] || '';
-        const targetNum = getTargetNumber(m, rawTarget);
-        const target = targetNum ? targetNum + '@s.whatsapp.net' : null;
-        let amount = parseInt(args.find(arg => !arg.includes('@') && /^\d+$/.test(arg)));
+        const mentioned = m.mentionedJid?.[0] || (m.quoted ? m.quoted.sender : null);
+        let targetNum = '';
+        let amount = NaN;
 
-        if (!target && args[0] && !isNaN(parseInt(args[0]))) {
-            amount = parseInt(args[0]);
-            const sn = getSenderNumber(m);
-            target = sn ? sn + '@s.whatsapp.net' : null;
+        if (mentioned) {
+            targetNum = getTargetNumber(m, mentioned);
+            const numArg = args.find((a) => !a.includes('@') && /^\d+$/.test(a));
+            amount = numArg ? parseInt(numArg, 10) : NaN;
+        } else if (args.length >= 2) {
+            targetNum = getTargetNumber(m, args[0]);
+            amount = parseInt(String(args[1] || '').replace(/[^0-9]/g, ''), 10);
+        } else if (args.length === 1 && /^\d+$/.test(args[0])) {
+            amount = parseInt(args[0], 10);
+            targetNum = getSenderNumber(m);
         }
 
+        const target = targetNum ? targetNum + '@s.whatsapp.net' : null;
+
         if (!target || isNaN(amount) || amount <= 0) {
-            return Reply(`📌 *Contoh Penggunaan:*\n> ◦ addlimit @user 20\n> ◦ addlimit 628123456789 20`);
+            return Reply(`📌 *Contoh Penggunaan:*\n> ◦ addlimit @user 20\n> ◦ addlimit 628123456789 20\n> ◦ addlimit 20 *(untuk diri sendiri)*`);
         }
 
         addBonusLimit(target, amount);

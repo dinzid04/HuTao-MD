@@ -2,9 +2,16 @@ const fs = require('fs');
 const path = require('path');
 const zlib = require('zlib');
 const crypto = require('crypto');
+const { execFile } = require('child_process');
 const axios = require('axios');
 const baileys = require('@whiskeysockets/baileys');
-const { writeExif } = require('../utils/exif');
+const {
+    writeExif,
+    createStickerExifBuffer,
+    injectWebpExifBuffer,
+    parseWebpChunks,
+    readSimpleWebpDimensions
+} = require('../utils/exif');
 
 let sharp = null;
 try { sharp = require('sharp'); } catch (_) {}
@@ -495,21 +502,156 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 </html>`;
 }
 
-function isAnimatedWebpBuffer(buf) {
-    if (!Buffer.isBuffer(buf) || buf.length < 30) return false;
-    return buf.subarray(0, 4).toString('ascii') === 'RIFF' &&
-        buf.subarray(8, 12).toString('ascii') === 'WEBP' &&
-        (buf.includes(Buffer.from('ANIM')) || buf.includes(Buffer.from('ANMF')));
+function isWebpBuffer(buf) {
+    return Buffer.isBuffer(buf) && buf.length > 16 &&
+        buf.subarray(0, 4).toString('ascii') === 'RIFF' &&
+        buf.subarray(8, 12).toString('ascii') === 'WEBP';
 }
 
-async function prepareStickerWebp(rawBuf, { packname, author, isAnimatedHint = false }) {
-    const isAlreadyWebp = rawBuf.length > 12 &&
-        rawBuf.subarray(0, 4).toString('ascii') === 'RIFF' &&
-        rawBuf.subarray(8, 12).toString('ascii') === 'WEBP';
-    const animated = isAnimatedHint || isAnimatedWebpBuffer(rawBuf);
+function isGifBuffer(buf) {
+    if (!Buffer.isBuffer(buf) || buf.length < 10) return false;
+    const head = buf.subarray(0, 6).toString('ascii');
+    return head === 'GIF87a' || head === 'GIF89a';
+}
+
+function isAnimatedWebpBuffer(buf) {
+    if (!isWebpBuffer(buf) || buf.length < 30) return false;
+    const chunks = parseWebpChunks(buf);
+    if (chunks) {
+        const hasAnimChunk = chunks.some((c) => c.tag === 'ANIM' || c.tag === 'ANMF');
+        if (hasAnimChunk) return true;
+        const vp8x = chunks.find((c) => c.tag === 'VP8X');
+        if (vp8x && vp8x.data.length >= 1 && (vp8x.data[0] & 0x02)) return true;
+        return false;
+    }
+    return buf.includes(Buffer.from('ANIM')) || buf.includes(Buffer.from('ANMF'));
+}
+
+function resolveFfmpegBin() {
+    if (process.env.FFMPEG_PATH && fs.existsSync(process.env.FFMPEG_PATH)) {
+        return process.env.FFMPEG_PATH;
+    }
+    try {
+        const ff = require('@ffmpeg-installer/ffmpeg');
+        if (ff && ff.path && fs.existsSync(ff.path)) {
+            try { fs.chmodSync(ff.path, 0o755); } catch (_) {}
+            return ff.path;
+        }
+    } catch (_) {}
+    return 'ffmpeg';
+}
+
+async function convertAnimatedToStickerWebp(rawBuf, inputExt = 'gif') {
+    if (!fs.existsSync(TMP_DIR)) fs.mkdirSync(TMP_DIR, { recursive: true });
+    const id = `animst_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
+    const inPath = path.join(TMP_DIR, `${id}.${inputExt}`);
+    const outPath = path.join(TMP_DIR, `${id}.webp`);
+    fs.writeFileSync(inPath, rawBuf);
+
+    const ffmpegBin = resolveFfmpegBin();
+    const profiles = [
+        { fps: 15, q: 62, maxSec: 8 },
+        { fps: 12, q: 42, maxSec: 6 },
+        { fps: 10, q: 28, maxSec: 5 }
+    ];
+
+    try {
+        for (const prof of profiles) {
+            try { if (fs.existsSync(outPath)) fs.unlinkSync(outPath); } catch (_) {}
+            await new Promise((resolve, reject) => {
+                const args = [
+                    '-y',
+                    '-i', inPath,
+                    '-vcodec', 'libwebp',
+                    '-vf', `scale=512:512:force_original_aspect_ratio=decrease,fps=${prof.fps},pad=512:512:(ow-iw)/2:(oh-ih)/2:color=0x00000000`,
+                    '-loop', '0',
+                    '-lossless', '0',
+                    '-compression_level', '6',
+                    '-q:v', String(prof.q),
+                    '-preset', 'default',
+                    '-an',
+                    '-vsync', '0',
+                    '-t', String(prof.maxSec),
+                    outPath
+                ];
+                execFile(ffmpegBin, args, { timeout: 25000 }, (err) => {
+                    if (err) reject(err);
+                    else resolve();
+                });
+            });
+            if (fs.existsSync(outPath)) {
+                const outBuf = fs.readFileSync(outPath);
+                if (outBuf.length > 30 && outBuf.length <= 495 * 1024 && isAnimatedWebpBuffer(outBuf)) {
+                    return outBuf;
+                }
+                if (prof === profiles[profiles.length - 1] && outBuf.length > 30) {
+                    return outBuf;
+                }
+            }
+        }
+    } catch (_) {
+    } finally {
+        try { if (fs.existsSync(inPath)) fs.unlinkSync(inPath); } catch (_) {}
+        try { if (fs.existsSync(outPath)) fs.unlinkSync(outPath); } catch (_) {}
+    }
+    return null;
+}
+
+async function prepareStickerWebp(rawBuf, { packId = '', packname, author, isAnimatedHint = false }) {
+    const alreadyWebp = isWebpBuffer(rawBuf);
+    const animWebp = alreadyWebp && isAnimatedWebpBuffer(rawBuf);
+    const isGif = isGifBuffer(rawBuf);
 
     let webpBuf = rawBuf;
-    if (!isAlreadyWebp || !animated) {
+
+    if (animWebp) {
+        // Periksa ukuran & dimensi: WhatsApp Native Sticker Pack mensyaratkan 512x512 & < 500 KB (490 KB agar aman setelah EXIF)
+        const chunks = parseWebpChunks(rawBuf);
+        const dims = chunks ? readSimpleWebpDimensions(chunks) : null;
+        const validSize = rawBuf.length <= 490 * 1000;
+        const validDims = Boolean(dims && dims.width === 512 && dims.height === 512);
+        if (!validSize || !validDims) {
+            let resized = null;
+            if (sharp) {
+                for (const q of [62, 44, 30, 20]) {
+                    try {
+                        const conv = await sharp(rawBuf, { animated: true })
+                            .resize(512, 512, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+                            .webp({ quality: q, effort: 4, loop: 0 })
+                            .toBuffer();
+                        if (Buffer.isBuffer(conv) && conv.length > 30 && isAnimatedWebpBuffer(conv)) {
+                            resized = conv;
+                            if (conv.length <= 490 * 1000) break;
+                        }
+                    } catch (_) {
+                        break;
+                    }
+                }
+            }
+            if (!resized) {
+                const transcoded = await convertAnimatedToStickerWebp(rawBuf, 'webp');
+                if (transcoded && isAnimatedWebpBuffer(transcoded)) {
+                    resized = transcoded;
+                }
+            }
+            if (resized) webpBuf = resized;
+        }
+    } else if (isGif) {
+        // Konversi GIF ke animated WebP 512x512 agar tetap bergerak di dalam Sticker Pack!
+        const transcoded = await convertAnimatedToStickerWebp(rawBuf, 'gif');
+        if (transcoded && isAnimatedWebpBuffer(transcoded)) {
+            webpBuf = transcoded;
+        } else if (sharp) {
+            try {
+                const conv = await sharp(rawBuf, { animated: true })
+                    .resize(512, 512, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+                    .webp({ quality: 65, effort: 4, loop: 0 })
+                    .toBuffer();
+                if (Buffer.isBuffer(conv) && conv.length > 0) webpBuf = conv;
+            } catch (_) {}
+        }
+    } else {
+        // Stiker statis (PNG/JPG/WebP statis) -> konversi ke 512x512 WebP statis
         if (sharp) {
             try {
                 const conv = await sharp(rawBuf, { animated: false })
@@ -521,19 +663,28 @@ async function prepareStickerWebp(rawBuf, { packname, author, isAnimatedHint = f
         }
     }
 
+    // Sisipkan EXIF WhatsApp secara lossless langsung ke chunk RIFF WebP
+    // tanpa merusak ANIM/ANMF/VP8X sehingga stiker animasi 100% tetap bergerak!
+    let finalBuf = webpBuf;
     try {
-        const res = await writeExif(webpBuf, { packname, author });
-        if (typeof res === 'string' && fs.existsSync(res)) {
-            const withExif = fs.readFileSync(res);
-            try { fs.unlinkSync(res); } catch (_) {}
-            return { buffer: withExif, isAnimated: animated };
-        }
-        if (Buffer.isBuffer(res)) {
-            return { buffer: res, isAnimated: animated };
+        const exifBuf = createStickerExifBuffer({ packId, packname, author, categories: ['✨'] });
+        const injected = injectWebpExifBuffer(webpBuf, exifBuf);
+        if (Buffer.isBuffer(injected) && injected.length > 20) {
+            finalBuf = injected;
+        } else if (!isAnimatedWebpBuffer(webpBuf)) {
+            const res = await writeExif(webpBuf, { packId, packname, author });
+            if (typeof res === 'string' && fs.existsSync(res)) {
+                finalBuf = fs.readFileSync(res);
+                try { fs.unlinkSync(res); } catch (_) {}
+            } else if (Buffer.isBuffer(res)) {
+                finalBuf = res;
+            }
         }
     } catch (_) {}
 
-    return { buffer: webpBuf, isAnimated: animated };
+    // Pastikan flag isAnimated di metadata proto 100% cocok dengan isi file WebP sebenarnya
+    const finalIsAnimated = isAnimatedWebpBuffer(finalBuf);
+    return { buffer: finalBuf, isAnimated: finalIsAnimated };
 }
 
 async function preparePackIcons(firstRawBuf) {
@@ -607,8 +758,10 @@ async function sendNativeStickerPack(Dinz, jid, packData, quoted, { packname, au
     const finalPackName = String(packData.name || packname || global.packname || 'Sticker Pack').slice(0, 64);
     const finalPublisher = String(packData.author || author || global.namaOwner || 'DinzID').slice(0, 64);
 
+    const stickerPackId = crypto.randomUUID();
     const prepared = await mapConcurrent(validRaw, 4, (raw) =>
         prepareStickerWebp(raw, {
+            packId: stickerPackId,
             packname: finalPackName,
             author: finalPublisher,
             isAnimatedHint: packData.isAnimated
@@ -617,7 +770,6 @@ async function sendNativeStickerPack(Dinz, jid, packData, quoted, { packname, au
     const validStickers = prepared.filter((s) => s && Buffer.isBuffer(s.buffer) && s.buffer.length > 0);
     if (validStickers.length === 0) throw new Error('Gagal memproses file WebP stiker.');
 
-    const stickerPackId = crypto.randomUUID();
     const trayIconFileName = `${stickerPackId}.png`;
     const { trayIconPng, coverPng } = await preparePackIcons(validRaw[0]);
 

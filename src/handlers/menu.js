@@ -67,7 +67,7 @@ global.menucpanel = buildMenuBlock('Menu Cpanel (3 Server)', [
 ]);
 
 global.menudownload = buildMenuBlock('Menu Download', [
-    'aio', 'ytdlp', 'ytmp3', 'ytmp4', 'capcut', 'gdrive', 'tiktok', 'ytdlpa',
+    'aio', 'ytdlp', 'ytmp3', 'ytmp4', 'capcut', 'gdrive', 'tiktok', 'ytdlpa', 'ytplaylist',
     'spotify', 'threads', 'twitter', 'ytmusic', 'videy 🅟', 'bstation', 'facebook',
     'gitclone', 'ytmlirik', 'instagram', 'mediafire', 'tiktokmp3', 'ytmsearch',
     'snackvideo', 'soundcloud', 'ytdlpsetup 🅞', 'setytcookies 🅞'
@@ -128,7 +128,7 @@ global.menugroup = buildMenuBlock('Menu Group', [
     'resetwarn 🅐', 'setdeskgc 🅐', 'setnamegc 🅐', 'addbadword 🅐', 'delbadword 🅐',
     'hapusabsen 🅐', 'mulaiabsen 🅐', 'mutemember 🅐', 'setwelcome 🅐',
     'listbadword 🅐', 'resetlinkgc 🅐', 'levelupnotif 🅐', 'setrulesgrup 🅐',
-    'sistemsewa 🅞', 'unmutemember 🅐', 'settheme 🅐'
+    'sistemsewa 🅞', 'unmutemember 🅐', 'settheme 🅐', 'cekonoff 🅐'
 ]);
 
 global.menuislami = buildMenuBlock('Menu Islami', [
@@ -170,7 +170,10 @@ global.menuowner = buildMenuBlock('Menu Owner', [
     'getplugin 🅞', 'outopengc 🅞', 'setprefix 🅞', 'autobackup 🅞', 'listplugin 🅞',
     'outclosegc 🅞', 'setrestart 🅞', 'settimezone 🅞', 'togglefitur 🅞',
     'levelupnotif 🅞', 'listgrubopen 🅞', 'reloadplugin 🅞', 'listgrubclose 🅞',
-    'resetlimitall 🅞', 'setlimitharian 🅞'
+    'resetlimitall 🅞', 'setlimitharian 🅞',
+    'updatesc 🅞', 'cekupdate 🅞', 'notifupdate 🅞', 'cekonoff 🅞',
+    'addmoney 🅞', 'delmoney 🅞', 'addbank 🅞', 'addexp 🅞', 'addlevel 🅞',
+    'setlevel 🅞', 'adddiamond 🅞', 'addgold 🅞', 'addpotion 🅞', 'additem 🅞', 'delitem 🅞'
 ]);
 
 global.menusetup = buildMenuBlock('Menu Setup Bot', [

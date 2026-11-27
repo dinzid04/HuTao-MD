@@ -44,7 +44,7 @@ const SENSITIVE_COMMANDS = new Set([
     'togglefitur', 'offfitur', 'onfitur', 'disablefitur', 'enablefitur', 'listoff',
     'reloadplugin', 'reloadfitur', 'reloadplugins',
     'cekapi', 'healthcheck', 'testapi',
-    'setrestart', 'restart', 'dbstatus', 'cekdb', 'infodb', 'savedb', 'syncdb', 'settimezone', 'timezone',
+    'setrestart', 'restart', 'updatesc', 'updatebot', 'cekupdate', 'notifupdate', 'dbstatus', 'cekdb', 'infodb', 'savedb', 'syncdb', 'settimezone', 'timezone',
     'jadibot', 'setjadibot', 'listjadibot', 'listjbot', 'deljadibot', 'deljbot',
     'stopjadibot', 'stopjbot', 'restartjadibot', 'restartjbot',
     'clonerstats', 'monitorcloner', 'cekclonerall',

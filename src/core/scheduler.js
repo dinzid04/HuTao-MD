@@ -472,6 +472,19 @@ function startSchedulers(database) {
         global.cpanelExpiredIntervalStarted = true;
     }
 
+    if (!global.updateCheckIntervalStarted) {
+        const runUpdateCheck = async () => {
+            try {
+                if (!global.socket) return;
+                const updater = require('../services/updater');
+                await updater.checkAndNotifyOwner(global.socket);
+            } catch (_) {}
+        };
+        setTimeout(runUpdateCheck, 90000);
+        setInterval(runUpdateCheck, 30 * 60 * 1000);
+        global.updateCheckIntervalStarted = true;
+    }
+
     syncAutoBackupTimer();
 }
 

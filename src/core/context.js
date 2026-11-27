@@ -63,6 +63,7 @@ function createDefaultBotData(isJadibot = false) {
             audiomenu: true,
             menuStyle: 1,
             levelupNotif: false,
+            notifUpdate: false,
             callQuality: '480p',
             callAudioQuality: 'clear'
         },
@@ -104,6 +105,9 @@ function normalizeBotData(raw, isJadibot = false) {
     }
     if (typeof merged.settings.levelupNotif !== 'boolean') {
         merged.settings.levelupNotif = false;
+    }
+    if (typeof merged.settings.notifUpdate !== 'boolean') {
+        merged.settings.notifUpdate = false;
     }
     if (!merged.settings.callQuality || typeof merged.settings.callQuality !== 'string') {
         merged.settings.callQuality = '480p';

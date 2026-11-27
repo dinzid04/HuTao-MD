@@ -14,10 +14,62 @@ module.exports = {
 
         let targetUrl = text || m.quoted?.text || m.quoted?.conversation || m.quoted?.caption || '';
         if (!targetUrl || targetUrl.trim().length === 0) {
-            return Reply(example("https://www.youtube.com/watch?v=kXYiU_JCYtU"));
+            return Reply(example("https://www.youtube.com/watch?v=kXYiU_JCYtU\n> ◦ Playlist Lagu: ytmp3 [jumlah] <link playlist>"));
         }
 
+        const explicitPlaylist = /\b(playlist|pl)\b/i.test(targetUrl);
+        let cleanedUrlInput = targetUrl.replace(/(?:^|\s)(playlist|pl)(?=\s|$)/gi, ' ').trim();
+        const cntMatch = cleanedUrlInput.match(/(?:^|\s)([1-9]|10)(?=\s+https?:\/\/|\s*$)/i);
+        const plCount = cntMatch ? parseInt(cntMatch[1], 10) : 5;
+        if (cntMatch) cleanedUrlInput = cleanedUrlInput.replace(cntMatch[0], ' ').trim();
+        const cleanUrl = cleanedUrlInput || targetUrl.trim();
+
         await Dinz.sendMessage(m.chat, { react: { text: '⏳', key: m.key } }).catch(() => {});
+
+        if (ytdlp.isPlaylistUrl(cleanUrl, { allowWatchWithList: explicitPlaylist })) {
+            try {
+                const pl = await ytdlp.getPlaylistInfo(cleanUrl, { maxItems: Math.min(10, Math.max(1, plCount)) });
+                const preview = pl.entries
+                    .map((e, i) => `> ${i + 1}. ${String(e.title || 'Lagu').slice(0, 50)} (${e.duration || '-'})`)
+                    .join('\n');
+                await Reply(
+                    `\`⌜ YouTube Playlist MP3 ⌟\`\n` +
+                    `> ◦ *Playlist :* ${pl.title}\n` +
+                    `> ◦ *Mengunduh :* ${pl.entries.length} dari ${pl.totalCount} lagu\n\n` +
+                    `${preview}\n\n` +
+                    `_⏳ Mengunduh & mengirim lagu satu per satu..._`
+                );
+                let sent = 0;
+                const failed = [];
+                for (const item of pl.entries) {
+                    let fPath = '';
+                    try {
+                        const res = await ytdlp.downloadAudioToFile(item.url, { maxFilesize: '100M' });
+                        fPath = res.filePath;
+                        const safeName = String(res.title || item.title || 'audio').replace(/[/\\?%*:|"<>]/g, '').trim().slice(0, 70) || 'audio';
+                        await Dinz.sendMessage(m.chat, {
+                            audio: { url: res.filePath },
+                            mimetype: 'audio/mpeg',
+                            fileName: `${safeName}.mp3`
+                        }, { quoted: m });
+                        sent++;
+                    } catch (eItem) {
+                        failed.push(`${item.index}. ${String(item.title || '').slice(0, 30)}`);
+                    } finally {
+                        if (fPath) ytdlp.cleanupFile(fPath);
+                    }
+                    await new Promise((r) => setTimeout(r, 1200));
+                }
+                if (sent > 0) addLimit(m.sender, isCreator);
+                await Dinz.sendMessage(m.chat, { react: { text: sent > 0 ? '✅' : '❌', key: m.key } }).catch(() => {});
+                const failTxt = failed.length ? `\n> ◦ Gagal: ${failed.join(', ')}` : '';
+                return Reply(`✅ *Playlist MP3 Selesai!* Terkirim *${sent}/${pl.entries.length}* lagu.${failTxt}`);
+            } catch (plErr) {
+                await Dinz.sendMessage(m.chat, { react: { text: '❌', key: m.key } }).catch(() => {});
+                return Reply(`❌ Gagal mengunduh playlist MP3: ${plErr?.message || plErr}`);
+            }
+        }
+
         Reply(global.mess.wait);
 
         const baseUrl = global.apiDinz;

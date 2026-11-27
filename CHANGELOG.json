@@ -1,0 +1,21 @@
+{
+  "version": "1.1.0",
+  "updatedAt": "2026-11-27",
+  "summary": "Allmenu 1 pesan, fix animasi Sticker Pack, Auto-Update SC GitHub, Playlist yt-dlp, Owner Add-Resource & Cek Status ON/OFF",
+  "added": [
+    "Auto-Update SC langsung dari GitHub (.updatesc, .cekupdate, .notifupdate on/off — default OFF) dengan log fitur baru & perbaikan serta perlindungan penuh untuk renamean, settings.js, dan database",
+    "Dukungan unduh Playlist YouTube (audio MP3 & video dengan pilihan resolusi) lewat .ytdlp, .ytdlpa, .ytplaylist, .ytmp3, dan .ytmp4",
+    "Fitur Owner tambah/kurang resource user (.addmoney, .addbank, .addexp, .addlevel, .adddiamond, .addgold, .addpotion, .additem, .delmoney, .setlevel, dll)",
+    "Fitur khusus cek semua pengaturan ON/OFF bot global & grup dalam satu kartu rapi (.cekonoff / .statusonoff)"
+  ],
+  "fixed": [
+    "Allmenu kini menyatu dalam 1 pesan penuh tanpa terpisah halaman dan seluruh baris tetap rapi kena blockquote (>)",
+    "Perbaikan stiker GIF/animasi di native WhatsApp Sticker Pack agar tetap bergerak mulus (lossless RIFF EXIF + konversi 512x512 WebP)",
+    "Perbaikan input resolusi .ytmp4 tanpa huruf 'p' (contoh: .ytmp4 1080 <url>) serta penjelasan jelas saat video kena geo-block negara",
+    "Perbaikan bug target nomor pada .addlimit saat memakai nomor HP langsung",
+    "Stabilisasi respon grup Baileys (cache groupMetadata anti rate-overlimit, fix Stream Errored ack, auto-heal Bad MAC)"
+  ],
+  "changed": [
+    "Kompresi obfuscate yt-dlp opensource dari 17,1 MB menjadi 2,17 MB (preset ghost+minify) sehingga startup dan RAM panel lebih ringan"
+  ]
+}
